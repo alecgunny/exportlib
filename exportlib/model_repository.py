@@ -10,13 +10,6 @@ import attr
 from exportlib import io
 
 
-class model_config:
-    @attr.s(auto_attribs=True)
-    class ModelConfig:
-        name: str
-        platform: str
-
-
 class Platform(enum.Enum):
     ONNX = "onnx"
     TRT = "tensorrt_plan"
@@ -32,28 +25,44 @@ class Model:
     def __attrs_post_init__(self):
         io.soft_makedirs(self.path)
 
-        config = None
-        if os.path.exists(self.config_path):
+        # try to load an existing config, if it exists
+        try:
             config = io.read_config(self.config_path)
-            if config is None:
-                pass
-            elif (
-                config.platform is not None and self.platform != Platform.DYNAMIC
-            ):
-                assert self.platform.value == config.platform
-            elif self.platform == Platform.DYNAMIC:
-                self.platform = Platform(config.platform)
-            else:
-                raise ValueError(f"Model {self.name} config missing platform")
-
-        if config is not None:
-            self.config = config
-        elif self.platform == Platform.DYNAMIC:
-            raise ValueError("Must specify platform for new model")
-        else:
+        except FileNotFoundError:
+            # if it doesn't, we have to specify what platform
+            # our new model uses
+            if self.platform == Platform.DYNAMIC:
+                raise ValueError("Must specify platform for new model")
             self.config = io.model_config.ModelConfig(
                 name=self.name, platform=self.platform.value
             )
+            return
+
+        if config.platform is not None and self.platform != Platform.DYNAMIC:
+            # if the config specifies a platform and the
+            # initialization did too, make sure they match
+            # TODO: just warn instead and prefer the specified
+            # one?
+            if self.platform.value != config.platform:
+                raise ValueError(
+                    f"Existing config for model {self.name} "
+                    f"specifies platform {config.platform}, which doesn't match "
+                    f"specified platform {self.platform.value}"
+                )
+        elif self.platform == Platform.DYNAMIC:
+            # otherwise if the initialization didn't specify
+            # anything, try to grab the platform from the config
+            try:
+                self.platform = Platform(config.platform)
+            except ValueError:
+                raise ValueError(
+                    f"Existing config for model {self.name} "
+                    f"specifies unknown platform {config.platform}"
+                )
+        else:
+            # otherwise we don't have a platform from anywhere so
+            # raise an error
+            raise ValueError(f"Model {self.name} config missing platform")
 
     @property
     def path(self):
@@ -111,6 +120,8 @@ class ModelRepository:
         try:
             model = Model(name=name, repository=self, platform=platform)
         except ValueError:
+            # TODO: this catch needs to be more specific since
+            # there's a bunch of ValueErrors in the post_init now
             raise ValueError("Unknown platform {}".format(platform))
 
         self.models.append(model)

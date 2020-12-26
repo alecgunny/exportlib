@@ -19,12 +19,9 @@ def _soft_makedirs(path):
 
 def read_config(path):
     config = model_config.ModelConfig()
-    try:
-        with open(path, "r") as f:
-            text_format.Merge(f.read(), config)
-        return config
-    except FileNotFoundError:
-        return None
+    with open(path, "r") as f:
+        text_format.Merge(f.read(), config)
+    return config
 
 
 def write_config(config, path):
