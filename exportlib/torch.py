@@ -17,7 +17,7 @@ def export(
     formats: typing.List[str] = "onnx",
     output_names: typing.List[str] = None,
     max_batch_size: int = 8,
-    concurrent_models=1,
+    concurrent_models: int = 1,
 ) -> str:
     model = repository.create(model_name, platform=formats, force=True)
     if all([shape[0] is None for shape in input_shapes.values()]):
