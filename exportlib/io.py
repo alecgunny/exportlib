@@ -4,7 +4,7 @@ from google.protobuf import text_format
 from tritongrpcclient import model_config_pb2 as model_config
 
 
-def _soft_makedirs(path):
+def soft_makedirs(path):
     # basically just a reminder to myself to
     # get rid of this function and replace it
     # with the exist_ok syntax when I'm confident
