@@ -16,4 +16,4 @@ exclude = '''
 '''
 
 [tool.isort]
-known_third_party = ["attr", "google", "tensorrt", "tritongrpcclient"]
+known_third_party = ["attr", "google", "tensorrt", "torch", "tritongrpcclient"]
