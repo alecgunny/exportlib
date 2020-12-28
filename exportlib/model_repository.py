@@ -22,39 +22,6 @@ class ModelConfig:
             self._config.max_batch_size = max_batch_size
         self.path = os.path.join(model.path, "config.pbtxt")
 
-        # dynamically add methods for creating inputs and outputs
-        # this will make things like updating datatype mappings
-        # and shape checks etc. simpler
-        def _add_exposed_tensor(exposed_type):
-            output_type = getattr(
-                io.model_config, "Model{}".format(exposed_type.title())
-            )
-
-            def f(
-                obj,
-                name: str,
-                shape: typing.Tuple[typing.Optional[int], ...],
-                dtype: str = "float32",  # TODO: include as some sort of enum?
-            ) -> output_type:
-                assert dtype in ("float32", "int64"), f"Unknown dtype {dtype}"
-
-                shape = (x or -1 for x in shape)
-                # TODO: add data_type mapping
-                exposed_obj = output_type(
-                    name=name,
-                    dims=shape,
-                    data_type=io.model_config.DataType.TYPE_FP32,
-                )
-
-                current_exposed = getattr(obj._config, exposed_type)
-                current_exposed.append(exposed_obj)
-                return exposed_obj
-
-            setattr(self, f"add_{exposed_type}", types.MethodType(f, self))
-
-        for exposed in ["input", "output"]:
-            _add_exposed_tensor(exposed)
-
     def __getattr__(self, name):
         try:
             return self._config.__getattribute__(name)
@@ -122,6 +89,45 @@ class ModelConfig:
 
     def __repr__(self):
         return str(self._config)
+
+
+def _add_exposed_tensor(exposed_type, docstring=""):
+    """
+    Utility function for adding input/output adding methods
+    to the config class. Doing it this way in order to simplify
+    things like syntax updates and building the data type map
+    """
+    output_type = getattr(io.model_config, "Model{}".format(exposed_type.title()))
+
+    def f(
+        obj,
+        name: str,
+        shape: typing.Tuple[typing.Optional[int], ...],
+        dtype: str = "float32",  # TODO: include as some sort of enum?
+    ) -> output_type:
+        f"""
+        {docstring}
+        """
+        assert dtype in ("float32", "int64"), f"Unknown dtype {dtype}"
+
+        shape = (x or -1 for x in shape)
+        # TODO: add data_type mapping
+        exposed_obj = output_type(
+            name=name,
+            dims=shape,
+            data_type=io.model_config.DataType.TYPE_FP32,
+        )
+
+        current_exposed = getattr(obj._config, exposed_type)
+        current_exposed.append(exposed_obj)
+        return exposed_obj
+
+    f.__name__ = f"add_{exposed_type}"
+    setattr(ModelConfig, f.__name__, types.MethodType(f, ModelConfig))
+
+
+for exposed in ["input", "output"]:
+    _add_exposed_tensor(exposed)
 
 
 class Platform(enum.Enum):

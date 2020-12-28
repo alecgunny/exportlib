@@ -1,7 +1,7 @@
 import os
 
 from google.protobuf import text_format
-from tritongrpcclient import model_config_pb2 as model_config
+from tritonclient.grpc import model_config_pb2 as model_config
 
 
 def soft_makedirs(path):
