@@ -123,7 +123,7 @@ class Model:
             # our new model uses
             if self.platform == Platform.DYNAMIC:
                 raise ValueError("Must specify platform for new model")
-            self.config = ModelConfig(name=self.name, platform=self.platform)
+            self.config = ModelConfig(self, platform=self.platform)
             return
 
         if self.config.platform is not None and self.platform != Platform.DYNAMIC:
