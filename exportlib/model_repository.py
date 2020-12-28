@@ -131,7 +131,7 @@ for exposed in ["input", "output"]:
 
 
 class Platform(enum.Enum):
-    ONNX = "onnx"
+    ONNX = "onnxruntime_onnx"
     TRT = "tensorrt_plan"
     DYNAMIC = None
 
