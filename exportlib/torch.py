@@ -11,7 +11,7 @@ def export(
     repository: ModelRepository,
     model_name: str,
     model_fn: typing.Callable,
-    input_shapes: dict[str, tuple],
+    input_shapes: typing.Dict[str, tuple],
     model_version: int = 1,
     formats: typing.List[str] = "onnx",
     output_names: typing.List[str] = None,
