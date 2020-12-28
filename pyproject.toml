@@ -16,4 +16,5 @@ exclude = '''
 '''
 
 [tool.isort]
+known_first_party = ["exportlib"]
 known_third_party = ["attr", "google", "tensorrt", "torch", "tritongrpcclient"]
