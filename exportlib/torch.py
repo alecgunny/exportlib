@@ -1,10 +1,10 @@
 import os
 import typing
+
 from inspect import signature
 
 import torch
 
-from exportlib.io import write_config
 from exportlib.model_repository import ModelRepository
 
 
