@@ -27,12 +27,11 @@ def export(
     for input_name, shape in input_shapes.items():
         # only allow variable sized shape for batch
         # for right now, TODO: how to handle generally?
+        # TODO: make error more specific
         if not all(shape[1:]):
             raise ValueError("Cannot use shape {}".format(shape))
 
-        model.config.add_input(
-            name=input_name, shape=(x or -1 for x in shape), dtype="float32"
-        )
+        model.config.add_input(name=input_name, shape=shape, dtype="float32")
         inputs[input_name] = torch.randn(*(x or 1 for x in shape))
         if shape[0] is None:
             dynamic_axes[input_name] = {0: "batch"}
@@ -57,18 +56,22 @@ def export(
 
     if isinstance(outputs, torch.Tensor):
         outputs = [outputs]
+        if output_names is None:
+            output_names = ["output"]
+
     if output_names is None:
-        output_names = [x.name for x in outputs]
+        output_names = [f"output_{i}" for i in range(len(outputs))]
     else:
         assert len(output_names) == len(outputs)
     outputs = dict(zip(output_names, outputs))
 
     for output_name, output in outputs.items():
-        shape = output.shape
+        shape = tuple(output.shape)
         if any([shape[0] is None for shape in input_shapes.values()]):
             shape[0] = -1
             dynamic_axes[output_name] = {0: "batch"}
 
+        # TODO: map dtype from tensor dtype directly
         model.add_output(name=output_name, shape=shape, dtype="float32")
 
     export_path = os.path.join(model.path, str(model_version), "model.onnx")
@@ -83,6 +86,8 @@ def export(
     )
 
     model.config.add_instance_group(
-        kind="gpu", gpu=0, num_models=concurrent_models
+        kind="gpu", gpus=[0], num_models=concurrent_models
     )
+    model.config.write()
+
     return export_path
