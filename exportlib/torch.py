@@ -71,7 +71,7 @@ def export(
             dynamic_axes[output_name] = {0: "batch"}
 
         # TODO: map dtype from tensor dtype directly
-        model.add_output(name=output_name, shape=shape, dtype="float32")
+        model.config.add_output(name=output_name, shape=shape, dtype="float32")
 
     export_path = os.path.join(model.path, str(model_version), "model.onnx")
     torch.onnx.export(
