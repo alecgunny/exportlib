@@ -3,9 +3,9 @@ import typing
 from inspect import signature
 
 import torch
+
 from exportlib.io import write_config
 from exportlib.model_repository import ModelRepository
-from tritongrpcclient import model_config_pb2 as model_config
 
 
 def export(
