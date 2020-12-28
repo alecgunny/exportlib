@@ -71,28 +71,52 @@ class ModelConfig:
     def write(self):
         io.write_config(self._config, self.path)
 
+    _INSTANCE_GROUP_KINDS = typing.Literal["cpu", "gpu", "auto", "model"]
+
     def add_instance_group(
         self,
-        kind: str = "gpu",  # TODO: add choices
+        kind: _INSTANCE_GROUP_KINDS = "gpu",
         gpus: typing.Optional[typing.Union[int, typing.List[int]]] = None,
         count: int = 1,
     ) -> io.model_config.ModelInstanceGroup:
-        assert kind in ("cpu", "gpu")
+        # first figure out which GPUs to use
+        # passing a single integer will be interpreted as a
+        # range of GPU indices, except for 0, which will
+        # default to using GPU 0. The default of None is
+        # interpreted as using GPU 0 as well.
+        # TODO: is this range behavior really what we want?
+        # I think so, if you want to specify a single non-zero
+        # GPU index, you can always put it in a one element list
         if isinstance(gpus, int):
             if gpus == 0 and kind == "gpu":
                 gpus = [gpus]
             elif kind == "gpu":
-                # TODO: is this the behavior we want?
                 gpus = [i for i in range(gpus)]
         if kind == "gpu" and gpus is None:
             gpus = [0]
 
+        # next deal with the instance group, mapping from
+        # our lowercase value to the protobuf enum expected
+        # by the config
+        try:
+            kind = io.model_config.ModelInstanceGroup.Kind.Value(
+                "KIND_{}".format(kind.upper())
+            )
+        except ValueError:
+            options = ", ".join(typing.get_args(self._INSTANCE_GROUP_KINDS))
+            raise ValueError(
+                f"Could not understand instance group kind {kind}, "
+                f"must be one of {options}"
+            )
+
+        # create the instance group, only assign GPUs
+        # if they've been specified
         instance_group = io.model_config.ModelInstanceGroup(
             kind=kind, count=count
         )
         if gpus is not None:
             instance_group.gpus.extend(gpus)
-        self._config.instance_group
+        self._config.instance_group.append(instance_group)
 
         return instance_group
 
