@@ -11,9 +11,68 @@ import attr
 from exportlib import io
 
 
+def _add_exposed_tensor(f):
+    """
+    Decorator for adding input/output adding methods
+    to the config class. Doing it this way in order to simplify
+    things like syntax updates and building the data type map
+    """
+    exposed_type = f.__name__.split("_")[1]
+    output_type = getattr(io.model_config, "Model{}".format(exposed_type.title()))
+
+    def wrapper(
+        obj: "ModelConfig",
+        name: str,
+        shape: typing.Tuple[typing.Optional[int], ...],
+        dtype: str = typing.Literal["float32", "int64"],
+        # TODO: should dtype be some sort of enum? How to
+        # handle more general data types?
+        **kwargs,  # including kwargs for reshaping later or something
+    ) -> output_type:
+        assert dtype in ("float32", "int64"), f"Unknown dtype {dtype}"
+
+        shape = (x or -1 for x in shape)
+        # TODO: add data_type mapping
+        exposed_obj = output_type(
+            name=name,
+            dims=shape,
+            data_type=io.model_config.DataType.TYPE_FP32,
+        )
+
+        current_exposed = getattr(obj._config, exposed_type)
+        current_exposed.append(exposed_obj)
+        f(exposed_obj, **kwargs)
+        return exposed_obj
+
+    wrapper.__name__ = f.__name__
+
+    docstring = f"""
+    :param name: name for the {exposed_type}
+    :param shape: tuple of tensor dimensions.
+        Use `None` to indicate a variable size.
+    :param dtype: Data type of the {exposed_type}
+    """
+    wrapper.__doc__ = f.__doc__ + "\n" + docstring
+    return wrapper
+
+
 class ModelConfig:
+    """
+    Wrapper around the `tritonclient.grpc.model_config_pb2.ModelConfig`
+    protobuf Message to simplify and standardize syntax around things
+    like path naming, reading/writing, and adding inputs/outputs.
+    :param model: the Triton `Model` object that this config describes
+    :param platform: the desired inference software `Platform` for the config
+    :param max_batch_size: the maximimum batch size this model will see
+        during inference. If left as `None`, the model will have a fixed batch
+        size and all inputs and outputs must have explicitly described dims
+    """
+
     def __init__(
-        self, model: "Model", platform: "Platform", max_batch_size: int = None
+        self,
+        model: "Model",
+        platform: "Platform",
+        max_batch_size: typing.Optional[int] = None,
     ):
         self._config = io.model_config.ModelConfig(
             name=model.name, platform=platform.value
@@ -36,7 +95,24 @@ class ModelConfig:
         return obj
 
     def write(self):
+        """
+        Write out the protobuf config to the model's
+        folder in the model repository
+        """
+        # TODO: add some validation checks here
+        # For example:
+        # ------------
+        #    - if max_batch_size is not set, ensure that
+        #        all inputs and outputs have dims > 0
         io.write_config(self._config, self.path)
+
+    @_add_exposed_tensor
+    def add_input(input: io.model_config.ModelInput, **kwargs):
+        return
+
+    @_add_exposed_tensor
+    def add_output(output: io.model_config.ModelOutput, **kwargs):
+        return
 
     _INSTANCE_GROUP_KINDS = typing.Literal["cpu", "gpu", "auto", "model"]
 
@@ -89,45 +165,6 @@ class ModelConfig:
 
     def __repr__(self):
         return str(self._config)
-
-
-def _add_exposed_tensor(exposed_type, docstring=""):
-    """
-    Utility function for adding input/output adding methods
-    to the config class. Doing it this way in order to simplify
-    things like syntax updates and building the data type map
-    """
-    output_type = getattr(io.model_config, "Model{}".format(exposed_type.title()))
-
-    def f(
-        obj,
-        name: str,
-        shape: typing.Tuple[typing.Optional[int], ...],
-        dtype: str = "float32",  # TODO: include as some sort of enum?
-    ) -> output_type:
-        f"""
-        {docstring}
-        """
-        assert dtype in ("float32", "int64"), f"Unknown dtype {dtype}"
-
-        shape = (x or -1 for x in shape)
-        # TODO: add data_type mapping
-        exposed_obj = output_type(
-            name=name,
-            dims=shape,
-            data_type=io.model_config.DataType.TYPE_FP32,
-        )
-
-        current_exposed = getattr(obj._config, exposed_type)
-        current_exposed.append(exposed_obj)
-        return exposed_obj
-
-    f.__name__ = f"add_{exposed_type}"
-    setattr(ModelConfig, f.__name__, f)  # types.MethodType(f, ModelConfig))
-
-
-for exposed in ["input", "output"]:
-    _add_exposed_tensor(exposed)
 
 
 class Platform(enum.Enum):
