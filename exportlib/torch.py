@@ -5,7 +5,7 @@ from inspect import signature
 import torch
 
 from exportlib import io
-from exportlib.model_repository import ModelRepository
+from exportlib.model_repository import ModelRepository, Platform
 
 
 def export(
@@ -14,13 +14,16 @@ def export(
     module: torch.nn.Module,
     input_shapes: typing.Dict[str, tuple],
     model_version: int = 1,
-    formats: typing.List[str] = "onnx",
     output_names: typing.List[str] = None,
     max_batch_size: int = 8,
     concurrent_models: int = 1,
     verbose: bool = False,
 ) -> str:
-    model = repository.create(model_name, platform=formats, force=True)
+    """
+    Export an instantiated PyTorch `Module` as an ONNX runtime to
+    a Triton model `repository` under the name `model_name`.
+    """
+    model = repository.create(model_name, platform=Platform.ONNX, force=True)
     if all([shape[0] is None for shape in input_shapes.values()]):
         model.config.max_batch_size = max_batch_size
 
@@ -37,11 +40,11 @@ def export(
         if shape[0] is None:
             dynamic_axes[input_name] = {0: "batch"}
 
-    # use model_fn signature to figure out how
-    # to pass parameters
+    # use function signature from module.forward
+    # method to infer the order in which to pass inputs
     parameters = dict(signature(module.forward).parameters)
 
-    # get rid of **kwargs
+    # get rid of any **kwargs
     try:
         parameters.pop("kwargs")
     except KeyError:
@@ -57,9 +60,14 @@ def export(
     try:
         inputs = [inputs[name] for name in input_names]
     except KeyError:
-        # input names don't match model_fn parameter names,
+        # input names don't match module.forward parameter names,
         # so give our best guess on ordering and sort the
         # inputs alphabetically
+        # TODO: at this point, does it make sense to just raise
+        # an error here? Alternatively, since parameter names like
+        # "x" are sort of standard in Module.forward definitions,
+        # does it make sense to provide an `input_name_map` kwarg
+        # that maps to more descriptive input names for Triton?
         input_names = sorted(inputs.keys())
         inputs = [inputs[name] for name in input_names]
     outputs = module(*inputs)
@@ -71,8 +79,9 @@ def export(
 
     if output_names is None:
         output_names = [f"output_{i}" for i in range(len(outputs))]
-    else:
-        assert len(output_names) == len(outputs)
+    elif isinstance(output_names, str):
+        output_names = [output_names]
+    assert len(output_names) == len(outputs)
     outputs = dict(zip(output_names, outputs))
 
     for output_name, output in outputs.items():
