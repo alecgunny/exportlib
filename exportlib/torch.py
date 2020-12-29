@@ -35,7 +35,16 @@ def export(
         if shape[0] is None:
             dynamic_axes[input_name] = {0: "batch"}
 
-    parameters = signature(model_fn).parameters
+    # use model_fn signature to figure out how
+    # to pass parameters
+    parameters = dict(signature(model_fn).parameters)
+
+    # get rid of **kwargs
+    try:
+        parameters.pop("kwargs")
+    except KeyError:
+        pass
+
     assert len(parameters) == len(input_shapes)
     if len(parameters) == 1:
         # if we have simple 1 -> 1 mapping, don't overcomplicate it
