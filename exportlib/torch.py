@@ -10,7 +10,7 @@ from exportlib.model_repository import ModelRepository
 def export(
     repository: ModelRepository,
     model_name: str,
-    model_fn: typing.Callable,
+    module: torch.nn.Module,
     input_shapes: typing.Dict[str, tuple],
     model_version: int = 1,
     formats: typing.List[str] = "onnx",
@@ -37,7 +37,7 @@ def export(
 
     # use model_fn signature to figure out how
     # to pass parameters
-    parameters = dict(signature(model_fn).parameters)
+    parameters = dict(signature(module.forward).parameters)
 
     # get rid of **kwargs
     try:
@@ -60,7 +60,8 @@ def export(
         # inputs alphabetically
         input_names = sorted(inputs.keys())
         inputs = [inputs[name] for name in input_names]
-    outputs = model_fn(*inputs)
+    print(inputs)
+    outputs = module(*inputs)
 
     if isinstance(outputs, torch.Tensor):
         outputs = [outputs]
@@ -84,7 +85,7 @@ def export(
 
     export_path = os.path.join(model.path, str(model_version), "model.onnx")
     torch.onnx.export(
-        model_fn,
+        module,
         inputs,
         export_path,
         verbose=True,
