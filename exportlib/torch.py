@@ -100,9 +100,6 @@ def export(
         dynamic_axes=dynamic_axes or None,
     )
 
-    model.config.add_instance_group(
-        kind="gpu", gpus=[0], num_models=concurrent_models
-    )
+    model.config.add_instance_group(kind="gpu", gpus=[0], count=concurrent_models)
     model.config.write()
-
     return export_path
