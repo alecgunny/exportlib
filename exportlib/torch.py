@@ -60,7 +60,6 @@ def export(
         # inputs alphabetically
         input_names = sorted(inputs.keys())
         inputs = [inputs[name] for name in input_names]
-    print(inputs)
     outputs = module(*inputs)
 
     if isinstance(outputs, torch.Tensor):
@@ -84,6 +83,9 @@ def export(
         model.config.add_output(name=output_name, shape=shape, dtype="float32")
 
     export_path = os.path.join(model.path, str(model_version), "model.onnx")
+
+    if len(inputs) == 1:
+        inputs = inputs[0]
     torch.onnx.export(
         module,
         inputs,
