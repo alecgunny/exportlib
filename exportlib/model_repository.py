@@ -123,7 +123,7 @@ def _add_exposed_tensor(exposed_type, docstring=""):
         return exposed_obj
 
     f.__name__ = f"add_{exposed_type}"
-    setattr(ModelConfig, f.__name__, types.MethodType(f, None, ModelConfig))
+    setattr(ModelConfig, f.__name__, f)  # types.MethodType(f, ModelConfig))
 
 
 for exposed in ["input", "output"]:
