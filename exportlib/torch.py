@@ -76,7 +76,7 @@ def export(
     for output_name, output in outputs.items():
         shape = tuple(output.shape)
         if any([shape[0] is None for shape in input_shapes.values()]):
-            shape[0] = -1
+            shape = (None,) + shape[1:]
             dynamic_axes[output_name] = {0: "batch"}
 
         # TODO: map dtype from tensor dtype directly
