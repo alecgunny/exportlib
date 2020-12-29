@@ -18,6 +18,7 @@ def export(
     output_names: typing.List[str] = None,
     max_batch_size: int = 8,
     concurrent_models: int = 1,
+    verbose: bool = False,
 ) -> str:
     model = repository.create(model_name, platform=formats, force=True)
     if all([shape[0] is None for shape in input_shapes.values()]):
@@ -94,7 +95,7 @@ def export(
         module,
         inputs,
         export_path,
-        verbose=True,
+        verbose=verbose,
         input_names=input_names,
         output_names=output_names,
         dynamic_axes=dynamic_axes or None,
