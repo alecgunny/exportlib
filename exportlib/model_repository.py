@@ -195,7 +195,7 @@ class ModelRepository:
     def __attrs_post_init__(self):
         io.soft_makedirs(self.path)
 
-        self.models = []
+        self.models = {}
         model_names = next(os.walk(self.path))[1]
         for model_name in model_names:
             try:
@@ -206,7 +206,7 @@ class ModelRepository:
     def create(self, name, platform=None, force=False):
         if any([model.name == name for model in self.models]) and not force:
             raise ValueError("Model {} already exists".format(name))
-        elif force:
+        elif any([model.name == name for model in self.models]) and force:
             # append an index to the name of the model starting at 0
             pattern = re.compile(f"{name}_[0-9]+")
             matches = [
@@ -238,5 +238,5 @@ class ModelRepository:
             # there's a bunch of ValueErrors in the post_init now
             raise ValueError("Unknown platform {}".format(platform))
 
-        self.models.append(model)
+        self.models[name] = model
         return model

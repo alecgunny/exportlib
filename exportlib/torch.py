@@ -4,6 +4,7 @@ from inspect import signature
 
 import torch
 
+from exportlib import io
 from exportlib.model_repository import ModelRepository
 
 
@@ -82,10 +83,13 @@ def export(
         # TODO: map dtype from tensor dtype directly
         model.config.add_output(name=output_name, shape=shape, dtype="float32")
 
-    export_path = os.path.join(model.path, str(model_version), "model.onnx")
+    version_dir = os.path.join(model.path, str(model_version))
+    io.soft_makedirs(version_dir)
+    export_path = os.path.join(version_dir, "model.onnx")
 
     if len(inputs) == 1:
         inputs = inputs[0]
+
     torch.onnx.export(
         module,
         inputs,
