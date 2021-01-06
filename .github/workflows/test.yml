@@ -1,0 +1,31 @@
+name: test
+
+# Only run this when the master branch changes
+on:
+  push:
+    branches:
+    - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: python tests
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    # Install dependencies
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8
+        
+    - name: Install dependencies
+      run: |
+        pip install nvidia-pyindex
+        pip install -r requirements.txt
+        pip install ./
+
+    - name: Run tests
+      run: |
+        pytest tests/unit

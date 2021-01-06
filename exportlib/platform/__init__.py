@@ -1,7 +1,6 @@
 import enum
 
 from .platform import Platform
-from .torch import TorchOnnxPlatform
 
 
 class PlatformName(enum.Enum):
@@ -10,4 +9,10 @@ class PlatformName(enum.Enum):
     DYNAMIC = None
 
 
-platforms = {PlatformName.ONNX: TorchOnnxPlatform}
+platforms = {}
+try:
+    from .torch import TorchOnnxPlatform
+except ImportError:
+    pass
+else:
+    platforms[PlatformName.ONNX] = TorchOnnxPlatform

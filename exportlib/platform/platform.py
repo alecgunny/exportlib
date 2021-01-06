@@ -70,15 +70,15 @@ class Platform(metaclass=abc.ABCMeta):
 
             # next check that the shapes match
             for ex in exposed:
-                config_shape = ex.dims
-                provided_shape = (i or -1 for i in provided[ex.name])
+                config_shape = list(ex.dims)
+                provided_shape = [i or -1 for i in provided[ex.name]]
                 if (
                     len(config_shape) != len(provided_shape)
                     or config_shape != provided_shape
                 ):
                     raise ValueError(
                         "Shapes {}, {} don't match".format(
-                            config_shape, provided_shape
+                            tuple(config_shape), tuple(provided_shape)
                         )
                     )
 
@@ -153,10 +153,7 @@ class Platform(metaclass=abc.ABCMeta):
 
         version_dir = os.path.join(self.model.path, str(version))
         io.soft_makedirs(version_dir)
-
-        export_path = self._do_export(
-            model_fn, version_dir, input_names, output_names, verbose=verbose
-        )
+        export_path = self._do_export(model_fn, version_dir, verbose=verbose)
 
         # write out the config for good measure
         self.model.config.write()

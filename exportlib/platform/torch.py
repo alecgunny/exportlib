@@ -21,9 +21,7 @@ class TorchOnnxPlatform(Platform):
         parameters = signature(model_fn).parameters
         return parameters
 
-    def _do_export(
-        self, model_fn, export_dir, input_names, output_names, verbose=0
-    ):
+    def _do_export(self, model_fn, export_dir, verbose=0):
         inputs, dynamic_axes = [], {}
         for input in self.model.config.input:
             shape = list(input.dims)
@@ -33,8 +31,8 @@ class TorchOnnxPlatform(Platform):
             inputs.append(self._make_tensor(shape))
 
         if len(dynamic_axes) > 0:
-            for output_name in output_names:
-                dynamic_axes[output_name] = {0: "batch"}
+            for output in self.model.config.output:
+                dynamic_axes[output.name] = {0: "batch"}
 
         if len(inputs) == 1:
             inputs = inputs[0]
@@ -44,8 +42,8 @@ class TorchOnnxPlatform(Platform):
             model_fn,
             inputs,
             export_path,
-            input_names=input_names,
-            output_names=output_names,
+            input_names=[x.name for x in self.model.config.input],
+            output_names=[x.name for x in self.model.config.output],
             dynamic_axes=dynamic_axes or None,
         )
         return export_path
