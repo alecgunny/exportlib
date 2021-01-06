@@ -1,6 +1,0 @@
-name: 'test'
-description: 'Run python tests'
-runs:
-  using: 'docker'
-  image: 'Dockerfile'
-  entrypoint: 'pytest /opt/exportlib/tests/unit'
