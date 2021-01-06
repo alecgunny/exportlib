@@ -283,9 +283,9 @@ class ModelRepository:
         platform: typing.Optional[str] = None,
         force: bool = False,
     ) -> "Model":
-        if any([model.name == name for model in self.models]) and not force:
+        if name in self.models and not force:
             raise ValueError("Model {} already exists".format(name))
-        elif any([model.name == name for model in self.models]) and force:
+        elif name in self.models:
             # append an index to the name of the model starting at 0
             pattern = re.compile(f"{name}_[0-9]+")
             matches = [
