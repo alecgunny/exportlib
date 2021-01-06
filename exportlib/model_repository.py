@@ -288,11 +288,7 @@ class ModelRepository:
         elif name in self.models:
             # append an index to the name of the model starting at 0
             pattern = re.compile(f"{name}_[0-9]+")
-            matches = [
-                model.name
-                for model in self.models
-                if pattern.fullmatch(model.name) is not None
-            ]
+            matches = list(filter(pattern.fullmatch, self.models))
 
             if len(matches) == 0:
                 # no postfixed models have been made yet, start at 0
