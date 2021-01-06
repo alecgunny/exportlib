@@ -1,7 +1,6 @@
 import enum
 import os
 import re
-import types
 import typing
 import warnings
 from itertools import count
@@ -9,6 +8,8 @@ from itertools import count
 import attr
 
 from exportlib import io
+from exportlib.platform import PlatformName, platforms
+from exportlib.platform.platform import _SHAPE_TYPE
 
 
 def _add_exposed_tensor(f):
@@ -71,7 +72,7 @@ class ModelConfig:
     def __init__(
         self,
         model: "Model",
-        platform: "Platform",
+        platform: PlatformName,
         max_batch_size: typing.Optional[int] = None,
     ):
         self._config = io.model_config.ModelConfig(
@@ -89,7 +90,7 @@ class ModelConfig:
 
     @classmethod
     def read(cls, model: "Model"):
-        obj = cls(model, Platform.DYNAMIC)
+        obj = cls(model, PlatformName.DYNAMIC)
         config = io.read_config(obj.path)
         obj._config = config
         return obj
@@ -108,10 +109,16 @@ class ModelConfig:
 
     @_add_exposed_tensor
     def add_input(input: io.model_config.ModelInput, **kwargs):
+        """
+        add an input
+        """
         return
 
     @_add_exposed_tensor
     def add_output(output: io.model_config.ModelOutput, **kwargs):
+        """
+        add an output
+        """
         return
 
     _INSTANCE_GROUP_KINDS = typing.Literal["cpu", "gpu", "auto", "model"]
@@ -167,17 +174,11 @@ class ModelConfig:
         return str(self._config)
 
 
-class Platform(enum.Enum):
-    ONNX = "onnxruntime_onnx"
-    TRT = "tensorrt_plan"
-    DYNAMIC = None
-
-
 @attr.s(auto_attribs=True)
 class Model:
     name: str
     repository: "ModelRepository"
-    platform: str = attr.ib(default=None, converter=Platform)
+    platform: str = attr.ib(default=None, converter=PlatformName)
 
     def __attrs_post_init__(self):
         io.soft_makedirs(self.path)
@@ -188,46 +189,82 @@ class Model:
         except FileNotFoundError:
             # if it doesn't, we have to specify what platform
             # our new model uses
-            if self.platform == Platform.DYNAMIC:
+            if self.platform == PlatformName.DYNAMIC:
                 raise ValueError("Must specify platform for new model")
             self.config = ModelConfig(self, platform=self.platform)
-            return
 
-        if self.config.platform is not None and self.platform != Platform.DYNAMIC:
-            # if the config specifies a platform and the
-            # initialization did too, make sure they match
-            # TODO: just warn instead and prefer the specified
-            # one?
-            if self.platform.value != self.config.platform:
-                raise ValueError(
-                    f"Existing config for model {self.name} "
-                    f"specifies platform {self.config.platform}, which doesn't match "
-                    f"specified platform {self.platform.value}"
-                )
-        elif self.platform == Platform.DYNAMIC:
-            # otherwise if the initialization didn't specify
-            # anything, try to grab the platform from the config
-            try:
-                self.platform = Platform(self.config.platform)
-            except ValueError:
-                raise ValueError(
-                    f"Existing config for model {self.name} "
-                    f"specifies unknown platform {self.config.platform}"
-                )
         else:
-            # otherwise we don't have a platform from anywhere so
-            # raise an error
-            raise ValueError(f"Model {self.name} config missing platform")
+            if (
+                self.config.platform is not None
+                and self.platform != PlatformName.DYNAMIC
+            ):
+                # if the config specifies a platform and the
+                # initialization did too, make sure they match
+                # TODO: just warn instead and prefer the specified
+                # one?
+                if self.platform.value != self.config.platform:
+                    raise ValueError(
+                        f"Existing config for model {self.name} "
+                        f"specifies platform {self.config.platform}, which "
+                        f"doesn't match specified platform {self.platform.value}"
+                    )
+            elif self.platform == PlatformName.DYNAMIC:
+                # otherwise if the initialization didn't specify
+                # anything, try to grab the platform from the config
+                try:
+                    self.platform = PlatformName(self.config.platform)
+                except ValueError:
+                    raise ValueError(
+                        f"Existing config for model {self.name} "
+                        f"specifies unknown platform {self.config.platform}"
+                    )
+            else:
+                # otherwise we don't have a platform from anywhere so
+                # raise an error
+                raise ValueError(f"Model {self.name} config missing platform")
+
+        finally:
+            try:
+                platform = platforms[self.platform]
+            except KeyError:
+                raise ValueError(
+                    "No exporter found for platform {}".format(
+                        self.platform.value
+                    )
+                )
+        self.platform = platform(self)
 
     @property
     def path(self):
         return os.path.join(self.repository.path, self.name)
 
+    @property
+    def versions(self):
+        # TODO: what if there are other dirs? Is Triton cool
+        # with that? Do we filter as ints?
+        return next(os.walk(self.path))[1]
+
+    def export_version(
+        self,
+        model_fn,
+        version: typing.Optional[int] = None,
+        input_shapes: _SHAPE_TYPE = None,
+        output_names: typing.Optional[typing.List[str]] = None,
+        verbose: int = 0,
+    ) -> str:
+        return self.platform.export(
+            model_fn,
+            version or len(self.versions) + 1,
+            input_shapes=input_shapes,
+            output_names=output_names,
+            verbose=verbose,
+        )
+
 
 @attr.s(auto_attribs=True)
 class ModelRepository:
     path: str
-    default_platform: str = attr.ib(default="tensorrt_plan")
+    default_platform: str = attr.ib(default=PlatformName.TRT)
 
     def __attrs_post_init__(self):
         io.soft_makedirs(self.path)
@@ -236,11 +273,16 @@ class ModelRepository:
         model_names = next(os.walk(self.path))[1]
         for model_name in model_names:
             try:
-                self.create(model_name)
+                self.create_model(model_name)
             except ValueError:
-                self.create(model_name, self.default_platform)
+                self.create_model(model_name, self.default_platform)
 
-    def create(self, name, platform=None, force=False):
+    def create_model(
+        self,
+        name: str,
+        platform: typing.Optional[str] = None,
+        force: bool = False,
+    ) -> "Model":
         if any([model.name == name for model in self.models]) and not force:
             raise ValueError("Model {} already exists".format(name))
         elif any([model.name == name for model in self.models]) and force:
