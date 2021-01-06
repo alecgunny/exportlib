@@ -9,7 +9,7 @@ from exportlib.platform import PlatformName
 
 def test_model_repository(input_dim=64):
     nn = torch.nn.Sequential(
-        [torch.nn.Linear(input_dim, 128), torch.nn.Linear(128, 1)]
+        torch.nn.Linear(input_dim, 128), torch.nn.Linear(128, 1)
     )
 
     repo = ModelRepository("/tmp/repo")
