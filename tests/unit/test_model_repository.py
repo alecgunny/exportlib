@@ -17,7 +17,9 @@ def test_model_repository(input_dim=64):
     model.max_batch_size = 8
     model.config.add_instance_group(kind="gpu", count=4)
 
-    export_path = model.export_version(nn, {"input": (None, input_dim)})
+    export_path = model.export_version(
+        nn, input_shapes={"input": (None, input_dim)}
+    )
     assert export_path == "/tmp/repo/my_nn/1/model.onnx"
     assert os.path.exists(export_path)
 
