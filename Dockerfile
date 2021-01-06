@@ -3,7 +3,7 @@ ARG dev=false
 FROM nvcr.io/nvidia/pytorch:${tag}-py3 AS base
 ARG tag
 
-RUN pip install nvidia-pyindex &&  pip install tritonclient[all]
+RUN pip install nvidia-pyindex && pip install tritonclient[all]
 
 ADD . /opt/exportlib
 

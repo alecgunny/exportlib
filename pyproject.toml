@@ -17,4 +17,4 @@ exclude = '''
 
 [tool.isort]
 known_first_party = ["exportlib"]
-known_third_party = ["attr", "google", "setuptools", "tensorrt", "torch", "tritonclient"]
+known_third_party = ["attr", "google", "pytest", "setuptools", "tensorrt", "torch", "tritonclient"]
