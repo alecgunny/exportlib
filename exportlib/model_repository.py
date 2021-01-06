@@ -8,7 +8,8 @@ from itertools import count
 import attr
 
 from exportlib import io
-from exportlib.platform import _SHAPE_TYPE, PlatformName, platforms
+from exportlib.platform import PlatformName, platforms
+from exportlib.platform.platform import _SHAPE_TYPE
 
 
 def _add_exposed_tensor(f):
@@ -108,10 +109,16 @@ class ModelConfig:
 
     @_add_exposed_tensor
     def add_input(input: io.model_config.ModelInput, **kwargs):
+        """
+        add an input
+        """
         return
 
     @_add_exposed_tensor
     def add_output(output: io.model_config.ModelOutput, **kwargs):
+        """
+        add an output
+        """
         return
 
     _INSTANCE_GROUP_KINDS = typing.Literal["cpu", "gpu", "auto", "model"]
@@ -185,45 +192,46 @@ class Model:
             if self.platform == PlatformName.DYNAMIC:
                 raise ValueError("Must specify platform for new model")
             self.config = ModelConfig(self, platform=self.platform)
-            return
 
-        if (
-            self.config.platform is not None
-            and self.platform != PlatformName.DYNAMIC
-        ):
-            # if the config specifies a platform and the
-            # initialization did too, make sure they match
-            # TODO: just warn instead and prefer the specified
-            # one?
-            if self.platform.value != self.config.platform:
-                raise ValueError(
-                    f"Existing config for model {self.name} "
-                    f"specifies platform {self.config.platform}, which "
-                    f"doesn't match specified platform {self.platform.value}"
-                )
-        elif self.platform == PlatformName.DYNAMIC:
-            # otherwise if the initialization didn't specify
-            # anything, try to grab the platform from the config
-            try:
-                self.platform = PlatformName(self.config.platform)
-            except ValueError:
-                raise ValueError(
-                    f"Existing config for model {self.name} "
-                    f"specifies unknown platform {self.config.platform}"
-                )
         else:
-            # otherwise we don't have a platform from anywhere so
-            # raise an error
-            raise ValueError(f"Model {self.name} config missing platform")
+            if(
+                self.config.platform is not None
+                and self.platform != PlatformName.DYNAMIC
+            ):
+                # if the config specifies a platform and the
+                # initialization did too, make sure they match
+                # TODO: just warn instead and prefer the specified
+                # one?
+                if self.platform.value != self.config.platform:
+                    raise ValueError(
+                        f"Existing config for model {self.name} "
+                        f"specifies platform {self.config.platform}, which "
+                        f"doesn't match specified platform {self.platform.value}"
+                    )
+            elif self.platform == PlatformName.DYNAMIC:
+                # otherwise if the initialization didn't specify
+                # anything, try to grab the platform from the config
+                try:
+                    self.platform = PlatformName(self.config.platform)
+                except ValueError:
+                    raise ValueError(
+                        f"Existing config for model {self.name} "
+                        f"specifies unknown platform {self.config.platform}"
+                    )
+            else:
+                # otherwise we don't have a platform from anywhere so
+                # raise an error
+                raise ValueError(f"Model {self.name} config missing platform")
 
-        try:
-            # TODO: where do we add the exporter? Do we just
-            # make this the platform attribute?
-            platform = platforms[self.platform.value]
-        except KeyError:
-            raise ValueError(
-                "No exporter found for platform {}".format(self.platform.value)
-            )
+        finally:
+            try:
+                platform = platforms[self.platform]
+            except KeyError:
+                raise ValueError(
+                    "No exporter found for platform {}".format(
+                        self.platform.value
+                    )
+                )
         self.platform = platform(self)
 
     @property
@@ -249,7 +257,7 @@ class Model:
             version or len(self.versions) + 1,
             input_shapes=input_shapes,
             output_names=output_names,
-            verobse=verbose,
+            verbose=verbose,
         )
 
 

@@ -18,7 +18,7 @@ class TorchOnnxPlatform(Platform):
     def _parse_model_fn_parameters(self, model_fn):
         if isinstance(model_fn, torch.nn.Module):
             model_fn = model_fn.forward
-        parameters = signature(model_fn.forward).parameters
+        parameters = signature(model_fn).parameters
         return parameters
 
     def _do_export(

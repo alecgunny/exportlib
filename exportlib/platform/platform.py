@@ -19,7 +19,7 @@ _SHAPE_TYPE = typing.Optional[
 
 @attr.s(auto_attribs=True)
 class Platform(metaclass=abc.ABCMeta):
-    config: Model
+    model: Model
 
     def _check_exposed_tensors(self, exposed_type, provided=None):
         exposed = getattr(self.model.config, exposed_type)
@@ -107,7 +107,7 @@ class Platform(metaclass=abc.ABCMeta):
         # use function signature from module.forward
         # method to infer the order in which to pass inputs
         # TODO: what will this do for *args
-        parameters = self._parse_model_fn_parameters(model_fn)
+        parameters = dict(self._parse_model_fn_parameters(model_fn))
 
         # get rid of any **kwargs
         try:
@@ -162,8 +162,8 @@ class Platform(metaclass=abc.ABCMeta):
         self.model.config.write()
         return export_path
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def _tensor_type(self):
         pass
 
