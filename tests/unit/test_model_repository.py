@@ -38,7 +38,7 @@ def test_model_repository(input_dim=64):
     new_repo = ModelRepository("/tmp/repo")
     for model_name in ["my_nn", "my_nn_0"]:
         assert model_name in new_repo.models
-    assert new_repo.models["my_nn"].config.instance_groups[0].count == 4
+    assert new_repo.models["my_nn"].config.instance_group[0].count == 4
 
     nn2 = torch.nn.Sequential(
         torch.nn.Linear(input_dim, 128), torch.nn.Linear(128, 1)
