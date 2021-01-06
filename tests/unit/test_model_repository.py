@@ -65,4 +65,4 @@ def test_model_repository(input_dim=64):
     # make sure we have a new version
     versions = next(os.walk("/tmp/repo/my_nn"))[1]
     versions = list(map(int, versions))
-    assert versions == [1, 2]
+    assert set(versions) == {1, 2}
