@@ -31,7 +31,7 @@ class TorchOnnxPlatform(Platform):
             inputs.append(self._make_tensor(shape))
 
         if len(dynamic_axes) > 0:
-            for output in self.config.output:
+            for output in self.model.config.output:
                 dynamic_axes[output.name] = {0: "batch"}
 
         if len(inputs) == 1:
@@ -42,8 +42,8 @@ class TorchOnnxPlatform(Platform):
             model_fn,
             inputs,
             export_path,
-            input_names=[x.name for x in self.config.input],
-            output_names=[x.name for x in self.config.output],
+            input_names=[x.name for x in self.model.config.input],
+            output_names=[x.name for x in self.model.config.output],
             dynamic_axes=dynamic_axes or None,
         )
         return export_path
