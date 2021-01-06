@@ -194,7 +194,7 @@ class Model:
             self.config = ModelConfig(self, platform=self.platform)
 
         else:
-            if(
+            if (
                 self.config.platform is not None
                 and self.platform != PlatformName.DYNAMIC
             ):
