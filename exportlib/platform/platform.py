@@ -153,10 +153,7 @@ class Platform(metaclass=abc.ABCMeta):
 
         version_dir = os.path.join(self.model.path, str(version))
         io.soft_makedirs(version_dir)
-
-        export_path = self._do_export(
-            model_fn, version_dir, input_names, output_names, verbose=verbose
-        )
+        export_path = self._do_export(model_fn, version_dir, verbose=verbose)
 
         # write out the config for good measure
         self.model.config.write()
