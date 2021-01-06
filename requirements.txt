@@ -2,3 +2,4 @@ tritonclient[all]==2.5.0
 torch>=1.7
 attrs
 protobuf
+pytest
