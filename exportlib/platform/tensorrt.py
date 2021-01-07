@@ -11,7 +11,7 @@ from exportlib import io
 from exportlib.platform import Platform, PlatformName, TorchOnnxPlatform
 from exportlib.platform.platform import _SHAPE_TYPE
 
-if typing._TYPE_CHECKING:
+if typing.TYPE_CHECKING:
     from exportlib.model_repository import Model
 
 
