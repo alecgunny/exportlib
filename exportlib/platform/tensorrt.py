@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import pdb
 import typing
 from copy import deepcopy
 
@@ -55,7 +56,7 @@ class TensorRTPlatform(Platform):
         TRT_LOGGER = trt.Logger()
         with contextlib.ExitStack() as stack:
             builder = stack.enter_context(trt.Builder(TRT_LOGGER))
-            config = builder.create_builder_config()
+            config = stack.enter_context(builder.create_builder_config())
 
             builder.max_workspace_size = 1 << 28  # 256 MiB
             builder.max_batch_size = max(self.model.config.max_batch_size, 1)
@@ -66,6 +67,7 @@ class TensorRTPlatform(Platform):
             for input in self.model.config.input:
                 if input.dims[0] != -1:
                     continue
+
                 profile = builder.create_optimization_profile()
                 min_shape = tuple([1] + input.dims[1:])
                 max_shape = tuple([builder.max_batch_size] + input.dims[1:])
@@ -84,29 +86,34 @@ class TensorRTPlatform(Platform):
             with open(model_fn, "rb") as f:
                 parser.parse(f.read())
 
-            for n, output in self.model.config.output:
+            output_shapes = {}
+            for n, output in enumerate(self.model.config.output):
                 network_output = network.get_output(n)
                 if network_output is None:
-                    # TODO: if we only have one output, try
-                    # to just default to marking the last layer
-                    # as it?
-                    raise IndexError(
-                        "Number of config outputs {} doesn't "
-                        "match number of outputs {} in network.".format(
-                            len(self.model.config.output), n
+                    # if we only have one output, default to marking
+                    # the last layer as the output layer
+                    if len(self.model.config.output) == 1:
+                        last_layer = network.get_layer(network.num_layers - 1)
+                        network_output = last_layer.get_output(0)
+                        network.mark_output(network_output)
+
+                    else:
+                        raise IndexError(
+                            "Number of config outputs {} doesn't "
+                            "match number of outputs {} in network.".format(
+                                len(self.model.config.output), n
+                            )
                         )
-                    )
-                if network_output.name != output.name:
-                    raise NameError(
-                        "Config output name {} at index {} doesn't "
-                        "match network output name {}".format(
-                            output.name, n, network_output.name
-                        )
-                    )
-                # TODO: check shapes as well
+
+                network_output.name = output.name
+                output_shapes[output.name] = network_output.shape
+            # self._check_exposed_tensors("output", output_shapes)
 
             engine = builder.build_cuda_engine(network)
-            engine_path = os.path.join(version_dir, self.model_filename)
+            if engine is None:
+                raise RuntimeError("TensorRT conversion failed")
+
+            engine_path = os.path.join(version_dir, "model.plan")
             with open(engine_path, "wb") as f:
                 f.write(engine.serialize())
 
