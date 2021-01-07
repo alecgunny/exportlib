@@ -8,12 +8,8 @@ from copy import deepcopy
 import tensorrt as trt
 
 from exportlib import io
-from exportlib.platform import (
-    _SHAPE_TYPE,
-    Platform,
-    PlatformName,
-    TorchOnnxPlatform,
-)
+from exportlib.platform import Platform, PlatformName, TorchOnnxPlatform
+from exportlib.platform.platform import _SHAPE_TYPE
 
 if typing._TYPE_CHECKING:
     from exportlib.model_repository import Model
