@@ -1,6 +1,7 @@
 import enum
 import os
 import re
+import shutil
 import typing
 import warnings
 from itertools import count
@@ -315,3 +316,17 @@ class ModelRepository:
 
         self.models[name] = model
         return model
+
+    def remove_model(self, name: str):
+        try:
+            model = self.models.pop(name)
+        except KeyError:
+            raise ValueError(f"Unrecognized model {name}")
+
+        shutil.rmtree(model.path)
+
+    def delete(self):
+        model_names = self.models.keys()
+        for model_name in model_names:
+            self.remove_model(model_name)
+        shutil.rmtree(self.path)

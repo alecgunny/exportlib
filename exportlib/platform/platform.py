@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import enum
 import os
 import typing
 
@@ -15,6 +16,12 @@ if typing.TYPE_CHECKING:
 _SHAPE_TYPE = typing.Optional[
     typing.Dict[str, typing.Tuple[typing.Optional[int], ...]]
 ]
+
+
+class PlatformName(enum.Enum):
+    ONNX = "onnxruntime_onnx"
+    TRT = "tensorrt_plan"
+    DYNAMIC = None
 
 
 @attr.s(auto_attribs=True)
@@ -169,9 +176,7 @@ class Platform(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def _do_export(
-        self, model_fn, export_dir, input_names, output_names, verbose=0
-    ):
+    def _do_export(self, model_fn, export_dir, verbose=0):
         pass
 
     @abc.abstractmethod

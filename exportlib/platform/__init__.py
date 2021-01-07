@@ -1,13 +1,4 @@
-import enum
-
-from .platform import Platform
-
-
-class PlatformName(enum.Enum):
-    ONNX = "onnxruntime_onnx"
-    TRT = "tensorrt_plan"
-    DYNAMIC = None
-
+from .platform import Platform, PlatformName
 
 platforms = {}
 try:
@@ -16,3 +7,11 @@ except ImportError:
     pass
 else:
     platforms[PlatformName.ONNX] = TorchOnnxPlatform
+
+
+try:
+    from .tensorrt import TensorRTTorchPlatform
+except ImportError:
+    pass
+else:
+    platforms[PlatformName.TRT] = TensorRTTorchPlatform
