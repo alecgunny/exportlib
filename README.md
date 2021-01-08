@@ -59,7 +59,7 @@ except ValueError as e:
 
 # if we use kwarg `force=True`, it will create
 # a new model "my_nn_0"
-model = repo.create_model("my_nn", platform=PlatformName.ONNX)
+model = repo.create_model("my_nn", platform=PlatformName.ONNX, force=True)
 assert model.name == "my_nn_0"
 ```
 
