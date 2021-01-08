@@ -39,7 +39,7 @@ print(export_path)
 # the original `model_fn`
 trt_model = repo.create_model("my_trt_nn", platform=PlatformName.TRT)
 trt_export_path = trt_model.export_version(
-	nn, input_shapes={"input": (None, 256)}
+    nn, input_shapes={"input": (None, 256)}
 )
 
 # or from the `Model` object we created earlier
@@ -48,6 +48,19 @@ trt_export_path = trt_model.export_version(model)
 
 # "/tmp/repo/my_trt_nn/1/model.plan"
 print(trt_export_path)
+
+# if I try to create a model that already exists,
+# it will yell at me
+try:
+    model = repo.create_model("my_nn", platform=PlatformName.ONNX)
+except ValueError as e:
+    # Nice try: Model my_nn already exists
+    print("Nice try: " + str(e))
+
+# if we use kwarg `force=True`, it will create
+# a new model "my_nn_0"
+model = repo.create_model("my_nn", platform=PlatformName.ONNX)
+assert model.name == "my_nn_0"
 ```
 
 Since the TensorRT components need to be utilized on the same hardware that will be used at inference time (which will presumably be different than your training hardware), it may end up making sense to package the TensorRT portion of this as a Flask application as a sort of conversion service to be deployed on nodes with the relevant hardware, possibly with an nginx server in front of them to route calls to the appropriate hardware.
