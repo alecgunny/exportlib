@@ -29,11 +29,25 @@ model.config.max_batch_size = 64
 model.add_instance_group("gpu", count=4)
 
 # export the onnx binary and the protobuf config
-export_path = model.export(nn, input_shapes={"input": (None, 256)})
+export_path = model.export_version(nn, input_shapes={"input": (None, 256)})
 
 # <repo_dir>/<model.name>/<version: defaulted to 1>/<standard onnx filename>
 # "/tmp/repo/my_nn/1/model.onnx"
 print(export_path)
+
+# we can now even do TensorRT export either from
+# the original `model_fn`
+trt_model = repo.create_model("my_trt_nn", platform=PlatformName.TRT)
+trt_export_path = trt_model.export_version(
+	nn, input_shapes={"input": (None, 256)}
+)
+
+# or from the `Model` object we created earlier
+# which will copy its config over
+trt_export_path = trt_model.export_version(model)
+
+# "/tmp/repo/my_trt_nn/1/model.plan"
+print(trt_export_path)
 ```
 
 Since the TensorRT components need to be utilized on the same hardware that will be used at inference time (which will presumably be different than your training hardware), it may end up making sense to package the TensorRT portion of this as a Flask application as a sort of conversion service to be deployed on nodes with the relevant hardware, possibly with an nginx server in front of them to route calls to the appropriate hardware.
