@@ -91,9 +91,9 @@ class TensorRTPlatform(Platform):
             # output_shapes = {}
             if len(self.model.config.output) == 1 and network.num_outputs == 0:
                 last_layer = network.get_layer(network.num_layers - 1)
-                network_output = last_layer.get_ouptut(0)
+                network_output = last_layer.get_output(0)
                 network.mark_output(network_output)
-            else:
+            elif len(self.model.config.output) != network.num_outputs:
                 raise ValueError(
                     "Number of config outputs {} doesn't "
                     "match number of outputs {} in network.".format(
