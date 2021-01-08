@@ -88,27 +88,45 @@ class TensorRTPlatform(Platform):
             parser = stack.enter_context(trt.OnnxParser(network, TRT_LOGGER))
             parser.parse(model_fn)
 
-            output_shapes = {}
+            # output_shapes = {}
+            if len(self.model.config.output) == 1 and network.num_outputs == 0:
+                last_layer = network.get_layer(network.num_layers - 1)
+                network_output = last_layer.get_ouptut(0)
+                network.mark_output(network_output)
+            else:
+                raise ValueError(
+                    "Number of config outputs {} doesn't "
+                    "match number of outputs {} in network.".format(
+                        len(self.model.config.output), network.num_outputs
+                    )
+                )
+
             for n, output in enumerate(self.model.config.output):
                 network_output = network.get_output(n)
-                if network_output is None:
-                    # if we only have one output, default to marking
-                    # the last layer as the output layer
-                    if len(self.model.config.output) == 1:
-                        last_layer = network.get_layer(network.num_layers - 1)
-                        network_output = last_layer.get_output(0)
-                        network.mark_output(network_output)
+                network_output.name = output.name
 
-                    else:
-                        raise IndexError(
-                            "Number of config outputs {} doesn't "
-                            "match number of outputs {} in network.".format(
-                                len(self.model.config.output), n
+                # rather than do a full shape check, only do
+                # it on the dimensions we have at build time
+                if len(network_output.shape) != len(output.dims):
+                    raise ValueError(
+                        "Number of dimensions {} specified for "
+                        "output {} not equal to number {} found "
+                        "in TensorRT network".format(
+                            len(output.dims),
+                            output.name,
+                            len(network_output.shape),
+                        )
+                    )
+                for ndim, cdim in zip(network_output.shape, output.dims):
+                    if ndim != -1 and ndim != cdim:
+                        raise ValueError(
+                            "Shape mismatch for output {} between "
+                            "config shape {} and network shape {}".format(
+                                output.name, output.dims, network_output.shape
                             )
                         )
 
-                network_output.name = output.name
-                output_shapes[output.name] = network_output.shape
+                # output_shapes[output.name] = network_output.shape
             # self._check_exposed_tensors("output", output_shapes)
 
             engine = builder.build_cuda_engine(network)
