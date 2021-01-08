@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import contextlib
+import io
 import os
-import pdb
 import typing
 from copy import deepcopy
 
 import tensorrt as trt
 
-from exportlib import io
+from exportlib.io import soft_makedirs
 from exportlib.platform import Platform, PlatformName, TorchOnnxPlatform
 from exportlib.platform.platform import _SHAPE_TYPE
 
@@ -17,6 +17,9 @@ if typing.TYPE_CHECKING:
 
 
 class TensorRTPlatform(Platform):
+    def _make_export_path(self, version):
+        return os.path.join(self.model.path, str(version), "model.plan")
+
     def export(
         self,
         model_fn: typing.Union[typing.Callable, Model, str],
@@ -26,13 +29,12 @@ class TensorRTPlatform(Platform):
         verbose: int = 0,
         use_fp16: bool = False,
     ):
-        delete = False
+        version_dir = os.path.join(self.model.path, str(version))
         if isinstance(model_fn, typing.Callable):
             model_fn = super().export(
                 model_fn, version, input_shapes, output_names, verbose
             )
-            delete = True
-            version_dir = os.path.dirname(model_fn)
+            model_fn = model_fn.getvalue()
 
         else:
             if not isinstance(model_fn, str):
@@ -41,7 +43,11 @@ class TensorRTPlatform(Platform):
                 temp_config.MergeFrom(self.model.config._config)
                 self.model.config._config = temp_config
 
-                model_fn = os.path.join(model_fn.path, str(version), "model.onnx")
+                model_fn = model_fn.platform._make_export_path(version)
+
+            with open(model_fn, "rb") as f:
+                model_fn = f.read()
+            soft_makedirs(version_dir)
 
             self._check_exposed_tensors("input", input_shapes)
 
@@ -49,9 +55,6 @@ class TensorRTPlatform(Platform):
             # so just make sure we have valid outputs
             if len(self.model.config.output) == 0:
                 raise ValueError("No model outputs")
-
-            version_dir = os.path.join(self.model.path, str(version))
-            io.soft_makedirs(version_dir)
 
         TRT_LOGGER = trt.Logger()
         with contextlib.ExitStack() as stack:
@@ -83,8 +86,7 @@ class TensorRTPlatform(Platform):
             )
 
             parser = stack.enter_context(trt.OnnxParser(network, TRT_LOGGER))
-            with open(model_fn, "rb") as f:
-                parser.parse(f.read())
+            parser.parse(model_fn)
 
             output_shapes = {}
             for n, output in enumerate(self.model.config.output):
@@ -119,11 +121,10 @@ class TensorRTPlatform(Platform):
 
             # write and clean up
             self.model.config.write()
-            if delete:
-                os.remove(model_fn)
-
             return engine_path
 
 
 class TensorRTTorchPlatform(TensorRTPlatform, TorchOnnxPlatform):
-    pass
+    def _do_export(self, model_fn, export_obj, verbose=0):
+        export_obj = io.BytesIO()
+        return super()._do_export(model_fn, export_obj, verbose)
