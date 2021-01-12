@@ -1,6 +1,8 @@
+from .ensemble import EnsemblePlatform
 from .platform import Platform, PlatformName
 
-platforms = {}
+platforms = {PlatformName.ENSEMBLE: EnsemblePlatform}
+
 try:
     from .torch import TorchOnnxPlatform
 except ImportError:

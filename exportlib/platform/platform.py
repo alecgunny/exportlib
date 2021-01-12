@@ -21,6 +21,7 @@ _SHAPE_TYPE = typing.Optional[
 class PlatformName(enum.Enum):
     ONNX = "onnxruntime_onnx"
     TRT = "tensorrt_plan"
+    ENSEMBLE = "ensemble"
     DYNAMIC = None
 
 

@@ -1,9 +1,9 @@
-import enum
+from __future__ import annotations
+
 import os
 import re
 import shutil
 import typing
-import warnings
 from itertools import count
 
 import attr
@@ -72,7 +72,7 @@ class ModelConfig:
 
     def __init__(
         self,
-        model: "Model",
+        model: Model,
         platform: PlatformName,
         max_batch_size: typing.Optional[int] = None,
     ):
@@ -90,7 +90,7 @@ class ModelConfig:
             raise AttributeError from e
 
     @classmethod
-    def read(cls, model: "Model"):
+    def read(cls, model: Model):
         obj = cls(model, PlatformName.DYNAMIC)
         config = io.read_config(obj.path)
         obj._config = config
@@ -175,10 +175,101 @@ class ModelConfig:
         return str(self._config)
 
 
+class EnsembleConfig(ModelConfig):
+    # TODO: maybe some integration with networkx digraphs?
+    def __init__(self, model: Model, max_batch_size: typing.Optional[int]):
+        self.models = {}
+        super().__init__(model, PlatformName.ENSEMBLE, max_batch_size)
+
+    def add_model(self, model: Model, version: typing.Optional[int]):
+        version = version or -1
+        step = io.model_config.ModelEnsembling.Step(
+            model_name=model.name, model_version=version
+        )
+        self._config.ensemble_scheduling.step.append(step)
+        self.models[model.name] = model
+        return step
+
+    def pipe(
+        self, input_tensor: str, output_tensor: str, name: typing.Optional[str]
+    ):
+        input_tensor_model, input_tensor_name = input_tensor.split(".")
+        output_tensor_model, output_tensor_name = output_tensor.split(".")
+
+        if name is None:
+            name = input_tensor_name
+
+        # TODO: combine this into one function that
+        # gets applied for both inputs and outputs
+        for step in self._config.ensemble_scheduling.step:
+            if step.name == input_tensor_model:
+                model = self.models[step.name]
+
+                if input_tensor_name not in model.outputs:
+                    raise ValueError(
+                        "Unrecognized output tensor {} from "
+                        "model {}".format(input_tensor_name, model.name)
+                    )
+                if input_tensor_name not in step.output_map:
+                    step.output_map[input_tensor_name] = name
+                elif step.output_map[input_tensor_name] != name:
+                    raise ValueError(
+                        "Output tensor {} for model {} "
+                        "already maps to name {}. Name "
+                        "{} was provided".format(
+                            input_tensor_name,
+                            step.name,
+                            step.output_map[input_tensor_name],
+                            name,
+                        )
+                    )
+                break
+        else:
+            if input_tensor_model == "INPUT" and name not in [
+                x.name for x in self._config.input
+            ]:
+                raise ValueError("Unrecognized input tensor {}".format(name))
+            elif input_tensor_model != "INPUT":
+                raise ValueError(
+                    "Model {} not in ensemble!".format(input_tensor_model)
+                )
+
+        for step in self._config.ensemble_scheduling.step:
+            if step.name == output_tensor_model:
+                model = self.models[step.name]
+
+            if output_tensor_name not in model.inputs:
+                raise ValueError(
+                    "Unrecognized input tensor {} from "
+                    "model {}".format(output_tensor_name, model.name)
+                )
+            if output_tensor_name in step.input_map:
+                raise ValueError(
+                    "Input {} for model {} is already "
+                    "receiving output from tensor {}".format(
+                        output_tensor_name,
+                        model.name,
+                        step.input_map[output_tensor_name],
+                    )
+                )
+            step.input_map[output_tensor_name] = name
+            break
+
+        else:
+            if output_tensor_model == "OUTPUT" and name not in [
+                x.name for x in self._config.output
+            ]:
+                raise ValueError("Unrecognized output tensor {}".format(name))
+            elif output_tensor_model != "OUTPUT":
+                raise ValueError(
+                    "Model {} not in ensemble!".format(output_tensor_model)
+                )
+
+
 @attr.s(auto_attribs=True)
 class Model:
     name: str
-    repository: "ModelRepository"
+    repository: ModelRepository
     platform: str = attr.ib(default=None, converter=PlatformName)
 
     def __attrs_post_init__(self):
@@ -192,7 +283,13 @@ class Model:
             # our new model uses
             if self.platform == PlatformName.DYNAMIC:
                 raise ValueError("Must specify platform for new model")
-            self.config = ModelConfig(self, platform=self.platform)
+
+            # TODO: should this use a factory class or something
+            # instead if all we need is the extra pipe method?
+            if self.platform == PlatformName.ENSEMBLE:
+                self.config = EnsembleConfig(self)
+            else:
+                self.config = ModelConfig(self, platform=self.platform)
 
         else:
             if (
@@ -245,14 +342,29 @@ class Model:
         # with that? Do we filter as ints?
         return next(os.walk(self.path))[1]
 
+    @property
+    def inputs(self):
+        return {x.name: x for x in self.config.input}
+
+    @property
+    def outputs(self):
+        return {x.name: x for x in self.config.output}
+
     def export_version(
         self,
-        model_fn,
+        model_fn: typing.Optional[typing.Union[typing.Callable, Model]] = None,
         version: typing.Optional[int] = None,
         input_shapes: _SHAPE_TYPE = None,
         output_names: typing.Optional[typing.List[str]] = None,
         verbose: int = 0,
     ) -> str:
+        if model_fn is None:
+            ensemble = platforms[PlatformName.ENSEMBLE]
+            if not isinstance(self.platform, ensemble):
+                raise ValueError(
+                    "Must specify model function for non " "ensemble model"
+                )
+
         return self.platform.export(
             model_fn,
             version or len(self.versions) + 1,
