@@ -15,6 +15,9 @@ class EnsemblePlatform(Platform):
     def _do_export(self, model_fn, export_obj, verbose=0):
         raise TypeError
 
+    def _make_export_path(self, version):
+        raise TypeError
+
     def export(self, *args, **kwargs):
         self.model.config.write()
         return None

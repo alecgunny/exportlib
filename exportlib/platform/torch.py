@@ -39,6 +39,8 @@ class TorchOnnxPlatform(Platform):
 
         if len(inputs) == 1:
             inputs = inputs[0]
+        else:
+            inputs = tuple(inputs)
 
         torch.onnx.export(
             model_fn,

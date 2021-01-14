@@ -1,5 +1,6 @@
-from .ensemble import EnsemblePlatform
 from .platform import Platform, PlatformName
+from .ensemble import EnsemblePlatform # isort:skip
+
 
 platforms = {PlatformName.ENSEMBLE: EnsemblePlatform}
 

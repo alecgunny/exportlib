@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+from collections import OrderedDict
 import enum
 import os
 import typing
@@ -115,7 +116,7 @@ class Platform(metaclass=abc.ABCMeta):
         # use function signature from module.forward
         # method to infer the order in which to pass inputs
         # TODO: what will this do for *args
-        parameters = dict(self._parse_model_fn_parameters(model_fn))
+        parameters = OrderedDict(self._parse_model_fn_parameters(model_fn))
 
         # get rid of any **kwargs
         try:
@@ -129,7 +130,7 @@ class Platform(metaclass=abc.ABCMeta):
             # if we have simple 1 -> 1 mapping, don't overcomplicate it
             input_names = list(input_tensors)
         else:
-            input_names = [parameter.name for parameter in parameters]
+            input_names = list(parameters)
 
         try:
             input_tensors = [input_tensors[name] for name in input_names]
