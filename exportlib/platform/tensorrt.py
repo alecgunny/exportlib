@@ -1,4 +1,4 @@
-from __future__ import annotations
+# from __future__ import annotations
 
 import contextlib
 import io
@@ -12,8 +12,8 @@ from exportlib.io import soft_makedirs
 from exportlib.platform import Platform, PlatformName, TorchOnnxPlatform
 from exportlib.platform.platform import _SHAPE_TYPE
 
-if typing.TYPE_CHECKING:
-    from exportlib.model_repository import Model
+# if typing.TYPE_CHECKING:
+#     from exportlib.model_repository import Model
 
 
 class TensorRTPlatform(Platform):
@@ -22,14 +22,13 @@ class TensorRTPlatform(Platform):
 
     def export(
         self,
-        model_fn: typing.Union[typing.Callable, Model, str],
+        model_fn: typing.Union[typing.Callable, "Model", str],
         version: int,
         input_shapes: _SHAPE_TYPE = None,
         output_names: typing.Optional[typing.List[str]] = None,
         verbose: int = 0,
         use_fp16: bool = False,
     ):
-        version_dir = os.path.join(self.model.path, str(version))
         if isinstance(model_fn, typing.Callable):
             model_fn = super().export(
                 model_fn, version, input_shapes, output_names, verbose
@@ -47,7 +46,6 @@ class TensorRTPlatform(Platform):
 
             with open(model_fn, "rb") as f:
                 model_fn = f.read()
-            soft_makedirs(version_dir)
 
             self._check_exposed_tensors("input", input_shapes)
 
@@ -133,7 +131,7 @@ class TensorRTPlatform(Platform):
             if engine is None:
                 raise RuntimeError("TensorRT conversion failed")
 
-            engine_path = os.path.join(version_dir, "model.plan")
+            engine_path = self._make_export_path(version)
             with open(engine_path, "wb") as f:
                 f.write(engine.serialize())
 

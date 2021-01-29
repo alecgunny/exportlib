@@ -18,3 +18,11 @@ except ImportError:
     pass
 else:
     platforms[PlatformName.TRT] = TensorRTTorchPlatform
+
+
+try:
+    from .tensorflow import TensorFlowSavedModelPlatform
+except ImportError:
+    pass
+else:
+    platforms[PlatformName.TF] = TensorFlowSavedModelPlatform

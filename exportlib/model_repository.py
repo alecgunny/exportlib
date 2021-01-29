@@ -1,4 +1,4 @@
-from __future__ import annotations
+# from __future__ import annotations
 
 import os
 import re
@@ -26,7 +26,7 @@ def _add_exposed_tensor(f):
         obj: "ModelConfig",
         name: str,
         shape: typing.Tuple[typing.Optional[int], ...],
-        dtype: str = typing.Literal["float32", "int64"],
+        dtype: str = "float32", # typing.Literal["float32", "int64"],
         # TODO: should dtype be some sort of enum? How to
         # handle more general data types?
         **kwargs,  # including kwargs for reshaping later or something
@@ -72,7 +72,7 @@ class ModelConfig:
 
     def __init__(
         self,
-        model: Model,
+        model: "Model",
         platform: PlatformName,
         max_batch_size: typing.Optional[int] = None,
     ):
@@ -90,7 +90,7 @@ class ModelConfig:
             raise AttributeError from e
 
     @classmethod
-    def read(cls, model: Model):
+    def read(cls, model: "Model"):
         obj = cls(model, PlatformName.DYNAMIC)
         config = io.read_config(obj.path)
         obj._config = config
@@ -122,7 +122,7 @@ class ModelConfig:
         """
         return
 
-    _INSTANCE_GROUP_KINDS = typing.Literal["cpu", "gpu", "auto", "model"]
+    _INSTANCE_GROUP_KINDS = str # typing.Literal["cpu", "gpu", "auto", "model"]
 
     def add_instance_group(
         self,
@@ -179,7 +179,7 @@ class EnsembleConfig(ModelConfig):
     # TODO: maybe some integration with networkx digraphs?
     def __init__(
         self,
-        model: Model,
+        model: "Model",
         max_batch_size: typing.Optional[int] = None
     ):
         self.models = {}
@@ -187,7 +187,7 @@ class EnsembleConfig(ModelConfig):
 
     def add_model(
         self,
-        model: Model,
+        model: "Model",
         version: typing.Optional[int] = None
     ):
         version = version or -1
@@ -293,7 +293,7 @@ class EnsembleConfig(ModelConfig):
 @attr.s(auto_attribs=True)
 class Model:
     name: str
-    repository: ModelRepository
+    repository: "ModelRepository"
     platform: str = attr.ib(default=None, converter=PlatformName)
 
     def __attrs_post_init__(self):
@@ -376,11 +376,12 @@ class Model:
 
     def export_version(
         self,
-        model_fn: typing.Optional[typing.Union[typing.Callable, Model]] = None,
+        model_fn: typing.Optional[typing.Union[typing.Callable, "Model"]] = None,
         version: typing.Optional[int] = None,
         input_shapes: _SHAPE_TYPE = None,
         output_names: typing.Optional[typing.List[str]] = None,
         verbose: int = 0,
+        **kwargs
     ) -> str:
         if model_fn is None:
             ensemble = platforms[PlatformName.ENSEMBLE]
@@ -389,13 +390,21 @@ class Model:
                     "Must specify model function for non " "ensemble model"
                 )
 
-        return self.platform.export(
-            model_fn,
-            version or len(self.versions) + 1,
-            input_shapes=input_shapes,
-            output_names=output_names,
-            verbose=verbose,
-        )
+        version = version or len(self.versions) + 1
+        version_dir = os.path.join(self.path, str(version))
+        io.soft_makedirs(version_dir)
+        try:
+            return self.platform.export(
+                model_fn,
+                version,
+                input_shapes=input_shapes,
+                output_names=output_names,
+                verbose=verbose,
+                **kwargs
+            )
+        except Exception:
+            shutil.rmtree(version_dir)
+            raise
 
 
 @attr.s(auto_attribs=True)

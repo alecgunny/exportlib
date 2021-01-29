@@ -1,4 +1,4 @@
-from __future__ import annotations
+# from __future__ import annotations
 
 import abc
 from collections import OrderedDict
@@ -8,10 +8,8 @@ import typing
 
 import attr
 
-from exportlib import io
-
-if typing.TYPE_CHECKING:
-    from exportlib.model_repository import Model
+# if typing.TYPE_CHECKING:
+#     from exportlib.model_repository import Model
 
 
 _SHAPE_TYPE = typing.Optional[
@@ -21,6 +19,7 @@ _SHAPE_TYPE = typing.Optional[
 
 class PlatformName(enum.Enum):
     ONNX = "onnxruntime_onnx"
+    TF = "tensorflow_savedmodel" # TODO: support pbtxt?
     TRT = "tensorrt_plan"
     ENSEMBLE = "ensemble"
     DYNAMIC = None
@@ -28,7 +27,7 @@ class PlatformName(enum.Enum):
 
 @attr.s(auto_attribs=True)
 class Platform(metaclass=abc.ABCMeta):
-    model: Model
+    model: "Model"
 
     def _check_exposed_tensors(self, exposed_type, provided=None):
         exposed = getattr(self.model.config, exposed_type)
@@ -159,9 +158,6 @@ class Platform(metaclass=abc.ABCMeta):
         if output_names is not None:
             shapes = {name: shape for name, shape in zip(output_names, shapes)}
         self._check_exposed_tensors("output", shapes)
-
-        version_dir = os.path.join(self.model.path, str(version))
-        io.soft_makedirs(version_dir)
 
         export_path = self._do_export(
             model_fn, self._make_export_path(version), verbose=verbose
