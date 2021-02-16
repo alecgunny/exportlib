@@ -387,7 +387,7 @@ class Model:
             ensemble = platforms[PlatformName.ENSEMBLE]
             if not isinstance(self.platform, ensemble):
                 raise ValueError(
-                    "Must specify model function for non " "ensemble model"
+                    "Must specify model function for non-ensemble model"
                 )
 
         version = version or len(self.versions) + 1
