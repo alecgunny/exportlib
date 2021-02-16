@@ -6,7 +6,8 @@ from copy import deepcopy
 
 import requests
 
-from exportlib.platform import _SHAPE_TYPE, Platform, TorchOnnxPlatform
+from exportlib.platform import Platform, TorchOnnxPlatform
+from exportlib.platform.platform import _SHAPE_TYPE
 
 from .onnx import convert_network
 
@@ -60,7 +61,7 @@ class TensorRTPlatform(Platform):
                 raise RuntimeError("Model conversion failed")
             engine = engine.serialize()
         else:
-            data = {"config": config.SerializeToString(), "model": model_fn}
+            data = {"config": config.SerializeToString(), "network": model_fn}
             response = requests.post(
                 url=url,
                 data=pickle.dumps(data),
@@ -76,7 +77,7 @@ class TensorRTPlatform(Platform):
 
         engine_path = self._make_export_path(version)
         with open(engine_path, "wb") as f:
-            f.write(engine.serialize())
+            f.write(engine)
 
         # write and clean up
         self.model.config.write()

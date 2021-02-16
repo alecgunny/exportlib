@@ -10,6 +10,7 @@ app = Flask(__name__)
 
 @app.errorhandler(Exception)
 def handle_500(e):
+    app.logger.error(str(e))
     return str(e), 500
 
 
@@ -33,7 +34,8 @@ def index():
     if engine is None:
         app.logger.error("Model conversion failed")
         return "Model conversion failed", 500
-    return Response(engine.serialize(), content_type="application/octet-stream")
+    engine = bytes(engine.serialize())
+    return Response(engine, content_type="application/octet-stream")
 
 
 if __name__ == "__main__":

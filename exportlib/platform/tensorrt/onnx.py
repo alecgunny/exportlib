@@ -9,7 +9,9 @@ if typing.TYPE_CHECKING:
 
 
 def convert_network(
-    model_binary: bytes, config: model_config.ModelConfig, use_fp16: bool = False
+    model_binary: bytes,
+    config: "model_config.ModelConfig",
+    use_fp16: bool = False
 ) -> bytes:
     with contextlib.ExitStack() as stack:
         return _convert_network(stack, model_binary, config, use_fp16)
@@ -18,7 +20,7 @@ def convert_network(
 def _convert_network(
     stack: contextlib.ExitStack,
     model_binary: bytes,
-    config: model_config.ModelConfig,
+    model_config: "model_config.ModelConfig",
     use_fp16: bool,
 ):
     """
@@ -28,13 +30,13 @@ def _convert_network(
     builder = stack.enter_context(trt.Builder(logger))
     config = stack.enter_context(builder.create_builder_config())
     builder.max_workspace_size = 1 << 28
-    builder.max_batch_size = max(config.max_batch_size, 1)
+    builder.max_batch_size = max(model_config.max_batch_size, 1)
     if use_fp16:
         builder.fp16_mode = True
         builder.strict_type_constraints = True
 
-    for input in config.input:
-        if input.dims[0] == -1:
+    for input in model_config.input:
+        if input.dims[0] != -1:
             continue
         profile = builder.create_optimization_profile()
         min_shape = tuple([1] + input.dims[1:])
@@ -52,19 +54,19 @@ def _convert_network(
     parser = stack.enter_context(trt.OnnxParser(network, logger))
     parser.parse(model_binary)
 
-    if len(config.output) == 1 and network.num_outputs == 0:
+    if len(model_config.output) == 1 and network.num_outputs == 0:
         last_layer = network.get_layer(network.num_layers - 1)
         network_output = last_layer.get_output(0)
         network.mark_output(network_output)
-    elif len(config.output) != network.num_outputs:
+    elif len(model_config.output) != network.num_outputs:
         raise ValueError(
             "Number of config outputs {} doesn't "
             "match number of outputs {} in network.".format(
-                len(config.output), network.num_outputs
+                len(model_config.output), network.num_outputs
             )
         )
 
-    for n, output in enumerate(config.output):
+    for n, output in enumerate(model_config.output):
         network_output = network.get_output(n)
         network_output.name = output.name
 
