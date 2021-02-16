@@ -8,6 +8,11 @@ from exportlib.platform.tensorrt.onnx import convert_network
 app = Flask(__name__)
 
 
+@app.errorhandler(Exception)
+def handle_500(e):
+    return str(e), 500
+
+
 @app.route("/onnx", methods=["POST", "GET"])
 def index():
     # TODO: this is mega unsafe
@@ -30,5 +35,6 @@ def index():
         return "Model conversion failed", 500
     return Response(engine.serialize(), content_type="application/octet-stream")
 
-    if __name__ == "__main__":
-        app.run()
+
+if __name__ == "__main__":
+    app.run()

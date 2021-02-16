@@ -60,13 +60,18 @@ class TensorRTPlatform(Platform):
                 raise RuntimeError("Model conversion failed")
             engine = engine.serialize()
         else:
-            # TODO: error catching here
             data = {"config": config.SerializeToString(), "model": model_fn}
             response = requests.post(
                 url=url,
                 data=pickle.dumps(data),
                 headers={"Content-Type": "application/octet-stream"},
             )
+            if response.status_code == 500:
+                content = response.content.decode("utf-8")
+                if content == "Model conversion failed":
+                    raise RuntimeError(content)
+                raise RuntimeError(f"Internal server error: {content}")
+
             engine = response.content
 
         engine_path = self._make_export_path(version)
