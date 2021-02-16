@@ -9,9 +9,7 @@ if typing.TYPE_CHECKING:
 
 
 def convert_network(
-    model_binary: bytes,
-    config: model_config.ModelConfig,
-    use_fp16: bool = False
+    model_binary: bytes, config: model_config.ModelConfig, use_fp16: bool = False
 ) -> bytes:
     with contextlib.ExitStack() as stack:
         return _convert_network(stack, model_binary, config, use_fp16)
@@ -21,7 +19,7 @@ def _convert_network(
     stack: contextlib.ExitStack,
     model_binary: bytes,
     config: model_config.ModelConfig,
-    use_fp16: bool
+    use_fp16: bool,
 ):
     """
     using a cheap wrapper to save myself some tabs
@@ -29,23 +27,21 @@ def _convert_network(
     logger = trt.Logger()
     builder = stack.enter_context(trt.Builder(logger))
     config = stack.enter_context(builder.create_builder_config())
-    builder.max_workspace_size = 1<< 28
+    builder.max_workspace_size = 1 << 28
     builder.max_batch_size = max(config.max_batch_size, 1)
     if use_fp16:
         builder.fp16_mode = True
         builder.strict_type_constraints = True
 
     for input in config.input:
-        if input.dims[0] = -1:
+        if input.dims[0] == -1:
             continue
         profile = builder.create_optimization_profile()
         min_shape = tuple([1] + input.dims[1:])
-        max_shape = tuple([builder.max_batch_size] + input_dims[1:])
+        max_shape = tuple([builder.max_batch_size] + input.dims[1:])
         optimal_shape = max_shape
 
-        profile.set_shape(
-            input.name, min_shape, optimal_shape, max_shape
-        )
+        profile.set_shape(input.name, min_shape, optimal_shape, max_shape)
         config.add_optimization_profile(profile)
 
     network = stack.enter_context(
@@ -53,7 +49,7 @@ def _convert_network(
             1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
         )
     )
-    parser = stack.enter_context(trt.OnnxParser(network, TRT_LOGGER))
+    parser = stack.enter_context(trt.OnnxParser(network, logger))
     parser.parse(model_binary)
 
     if len(config.output) == 1 and network.num_outputs == 0:

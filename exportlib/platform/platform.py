@@ -1,15 +1,15 @@
 # from __future__ import annotations
 
 import abc
-from collections import OrderedDict
 import enum
 import os
 import typing
+from collections import OrderedDict
 
 import attr
 
-# if typing.TYPE_CHECKING:
-#     from exportlib.model_repository import Model
+if typing.TYPE_CHECKING:
+    from exportlib.model_repository import Model
 
 
 _SHAPE_TYPE = typing.Optional[
@@ -19,7 +19,7 @@ _SHAPE_TYPE = typing.Optional[
 
 class PlatformName(enum.Enum):
     ONNX = "onnxruntime_onnx"
-    TF = "tensorflow_savedmodel" # TODO: support pbtxt?
+    TF = "tensorflow_savedmodel"  # TODO: support pbtxt?
     TRT = "tensorrt_plan"
     ENSEMBLE = "ensemble"
     DYNAMIC = None

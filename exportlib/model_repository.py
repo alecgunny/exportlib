@@ -26,7 +26,7 @@ def _add_exposed_tensor(f):
         obj: "ModelConfig",
         name: str,
         shape: typing.Tuple[typing.Optional[int], ...],
-        dtype: str = "float32", # typing.Literal["float32", "int64"],
+        dtype: str = "float32",  # typing.Literal["float32", "int64"],
         # TODO: should dtype be some sort of enum? How to
         # handle more general data types?
         **kwargs,  # including kwargs for reshaping later or something
@@ -122,7 +122,7 @@ class ModelConfig:
         """
         return
 
-    _INSTANCE_GROUP_KINDS = str # typing.Literal["cpu", "gpu", "auto", "model"]
+    _INSTANCE_GROUP_KINDS = str  # typing.Literal["cpu", "gpu", "auto", "model"]
 
     def add_instance_group(
         self,
@@ -178,18 +178,12 @@ class ModelConfig:
 class EnsembleConfig(ModelConfig):
     # TODO: maybe some integration with networkx digraphs?
     def __init__(
-        self,
-        model: "Model",
-        max_batch_size: typing.Optional[int] = None
+        self, model: "Model", max_batch_size: typing.Optional[int] = None
     ):
         self.models = {}
         super().__init__(model, PlatformName.ENSEMBLE, max_batch_size)
 
-    def add_model(
-        self,
-        model: "Model",
-        version: typing.Optional[int] = None
-    ):
+    def add_model(self, model: "Model", version: typing.Optional[int] = None):
         version = version or -1
         step = io.model_config.ModelEnsembling.Step(
             model_name=model.name, model_version=version
@@ -202,7 +196,7 @@ class EnsembleConfig(ModelConfig):
         self,
         input_tensor: str,
         output_tensor: str,
-        name: typing.Optional[str] = None
+        name: typing.Optional[str] = None,
     ):
         input_tensor_model, input_tensor_name = input_tensor.split(".")
         output_tensor_model, output_tensor_name = output_tensor.split(".")
@@ -381,7 +375,7 @@ class Model:
         input_shapes: _SHAPE_TYPE = None,
         output_names: typing.Optional[typing.List[str]] = None,
         verbose: int = 0,
-        **kwargs
+        **kwargs,
     ) -> str:
         if model_fn is None:
             ensemble = platforms[PlatformName.ENSEMBLE]
@@ -400,7 +394,7 @@ class Model:
                 input_shapes=input_shapes,
                 output_names=output_names,
                 verbose=verbose,
-                **kwargs
+                **kwargs,
             )
         except Exception:
             shutil.rmtree(version_dir)

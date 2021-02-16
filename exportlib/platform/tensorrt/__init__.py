@@ -1,11 +1,17 @@
+import io
 import os
 import pickle
-import requests
+import typing
 from copy import deepcopy
 
-from exportlib.platform import Platform, TorchOnnxPlatform
+import requests
+
+from exportlib.platform import _SHAPE_TYPE, Platform, TorchOnnxPlatform
 
 from .onnx import convert_network
+
+if typing.TYPE_CHECKING:
+    from exportlib import Model
 
 
 class TensorRTPlatform(Platform):
@@ -20,7 +26,7 @@ class TensorRTPlatform(Platform):
         output_names: typing.Optional[typing.List[str]] = None,
         verbose: int = 0,
         use_fp16: bool = False,
-        url: typing.Optional[str] = None
+        url: typing.Optional[str] = None,
     ):
         if isinstance(model_fn, typing.Callable):
             model_fn = super().export(
@@ -55,14 +61,11 @@ class TensorRTPlatform(Platform):
             engine = engine.serialize()
         else:
             # TODO: error catching here
-            data = {
-                "config": config.SerializeToString(),
-                "model": model_fn
-            }
+            data = {"config": config.SerializeToString(), "model": model_fn}
             response = requests.post(
                 url=url,
                 data=pickle.dumps(data),
-                headers={'Content-Type': 'application/octet-stream'}
+                headers={"Content-Type": "application/octet-stream"},
             )
             engine = response.content
 
