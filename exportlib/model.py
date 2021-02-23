@@ -10,6 +10,8 @@ from exportlib.platform import Platform, PlatformName, platforms
 from exportlib.platform.platform import _SHAPE_TYPE
 
 if typing.TYPE_CHEKCKING:
+    from tritonclient.grpc.model_config_pb2 import ModelEnsembling
+
     from exportlib import ModelRepository
 
 
@@ -175,7 +177,7 @@ class EnsembleModel(Model):
         tensor: _tensor_type,
         exposed_type: str,
         version: typing.Optional[int] = None,
-    ):
+    ) -> typing.Tuple[ExposedTensor, ModelEnsembling.Step]:
         assert exposed_type in ["input", "output"]
         repo_models = list(self.repo.models.values())
 
@@ -224,7 +226,7 @@ class EnsembleModel(Model):
         self,
         output: typing.Union[str, ExposedTensor],
         version: typing.Optional[int] = None,
-    ):
+    ) -> ExposedTensor:
         output, step = self._find_tensor(output, "output", version)
         if output.name not in self.outputs:
             self.config.add_output(
