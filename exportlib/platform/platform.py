@@ -162,7 +162,7 @@ class Platform(metaclass=abc.ABCMeta):
         )
 
         # write out the config for good measure
-        self.model.config.write()
+        self.model.config.write(os.path.join(self.model.path, "config.pbtxt"))
         return export_path
 
     @property

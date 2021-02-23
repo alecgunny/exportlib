@@ -34,10 +34,53 @@ class ExposedTensor:
     shape: _SHAPE_TYPE
 
 
+def _infer_platform(name, config_path, platform=None):
+    if platform is not None:
+        try:
+            platform = PlatformName(platform)
+        except ValueError:
+            raise ValueError(f"Unrecognized platform {platform}")
+    else:
+        platform = PlatformName.DYNAMIC
+
+    try:
+        config = ModelConfig.read(config_path)
+    except FileNotFoundError:
+        if platform is PlatformName.DYNAMIC:
+            raise ValueError("Must specify platform for new model")
+        config = ModelConfig(name, platform)
+    else:
+        if config.platform != "" and platform is not PlatformName.DYNAMIC:
+            # if the config specifies a platform and the
+            # initialization did too, make sure they match
+            if platform.value != config.platform:
+                raise ValueError(
+                    f"Existing config for model {name} "
+                    f"specifies platform {config.platform}, which "
+                    f"doesn't match specified platform {platform.value}"
+                )
+        elif platform is PlatformName.DYNAMIC:
+            # otherwise if the initialization didn't specify
+            # anything, try to grab the platform from the config
+            try:
+                platform = PlatformName(config.platform)
+            except ValueError:
+                raise ValueError(
+                    f"Existing config for model {config.name} "
+                    f"specifies unknown platform {config.platform}"
+                )
+        else:
+            # otherwise we don't have a platform from anywhere so
+            # raise an error
+            raise ValueError(f"Model {config.name} config missing platform")
+    return platform, config
+
+
 @attr.s(auto_attribs=True)
 class Model:
+    name: str
     repository: "ModelRepository"
-    config: ModelConfig
+    platform: typing.Optional[str]
 
     def __new__(
         cls,
@@ -45,67 +88,24 @@ class Model:
         repository: "ModelRepository",
         platform: typing.Optional[str],
     ):
-        if platform is not None:
-            try:
-                platform = PlatformName(platform)
-            except ValueError:
-                raise ValueError(f"Unrecognized platform {platform}")
+        config_path = os.path.join(repository.path, name, "config.pbtxt")
+        platform, _ = _infer_platform(name, platform, config_path)
 
-        with _create_subdir(repository.path, name) as path:
-            try:
-                config = ModelConfig.read(os.path.join(path, "config.pbtxt"))
-            except FileNotFoundError:
-                if platform is PlatformName.DYNAMIC:
-                    raise ValueError("Must specify platform for new model")
-                config = ModelConfig(name, platform)
-            else:
-                if config.platform != "" and platform is not PlatformName.DYNAMIC:
-                    # if the config specifies a platform and the
-                    # initialization did too, make sure they match
-                    if platform.value != config.platform:
-                        raise ValueError(
-                            f"Existing config for model {name} "
-                            f"specifies platform {config.platform}, which "
-                            f"doesn't match specified platform {platform.value}"
-                        )
-                elif platform is PlatformName.DYNAMIC:
-                    # otherwise if the initialization didn't specify
-                    # anything, try to grab the platform from the config
-                    try:
-                        platform = PlatformName(config.platform)
-                    except ValueError:
-                        raise ValueError(
-                            f"Existing config for model {config.name} "
-                            f"specifies unknown platform {config.platform}"
-                        )
-                else:
-                    # otherwise we don't have a platform from anywhere so
-                    # raise an error
-                    raise ValueError(
-                        f"Model {config.name} config missing platform"
-                    )
+        if platform is PlatformName.ENSEMBLE:
+            cls = EnsembleModel
+        return super().__new__(cls)
 
-            if platform is PlatformName.ENSEMBLE:
-                cls = EnsembleModel
-            obj = super().__new__(cls)
-            obj.__init__(repository, config)
-            return obj
+    def __attrs_post_init__(self):
+        config_path = os.path.join(self.path, "config.pbtxt")
+        platform, config = _infer_platform(self.name, self.platform, config_path)
 
-    @property
-    def name(self):
-        return self.config.name
-
-    @property
-    def platform(self):
         try:
-            platform = PlatformName(self.config.platform)
-            return platforms[platform](self)
+            self.platform = platforms[platform](self)
         except KeyError:
             raise ValueError(
-                "No exporter associated with platform {}".format(
-                    self.config.platform
-                )
+                "No exporter associated with platform {}".format(platform)
             )
+        self.config = config
 
     @property
     def path(self):
