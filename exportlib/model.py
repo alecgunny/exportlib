@@ -204,12 +204,12 @@ class EnsembleModel(Model):
                     f"Trying to add model {tensor.model.name} to "
                     "ensemble that doesn't exist in repo."
                 )
-            step = self.config.add_model(tensor.model, version=version)
+            step = self.config.add_step(tensor.model, version=version)
         return tensor, step
 
     def add_input(
         self,
-        input: typing.Union[str, ExposedTensor],
+        input: _tensor_type,
         version: typing.Optional[int] = None,
     ) -> ExposedTensor:
         input, step = self._find_tensor(input, "input", version)
@@ -224,7 +224,7 @@ class EnsembleModel(Model):
 
     def add_output(
         self,
-        output: typing.Union[str, ExposedTensor],
+        output: _tensor_type,
         version: typing.Optional[int] = None,
     ) -> ExposedTensor:
         output, step = self._find_tensor(output, "output", version)
@@ -236,6 +236,41 @@ class EnsembleModel(Model):
             )
         step.output_map[output.name] = output.name
         return self.outputs[output.name]
+
+    def add_streaming_inputs(
+        self, inputs: typing.Union[typing.List[_tensor_type]], stream_size: int
+    ):
+        tensors = []
+        for input in inputs:
+            tensor, step = self._find_tensor(input, "input")
+            tensors.append(tensor)
+
+        try:
+            from exportlib.stream import make_streaming_input_model
+        except ImportError as e:
+            if "tensorflow" in str(e):
+                raise RuntimeError(
+                    "Unable to leverage streaming input, "
+                    "must install TensorFlow first"
+                )
+        streaming_model = make_streaming_input_model(
+            self.repo, tensors, stream_size
+        )
+
+        self.add_input(streaming_model.inputs["stream"])
+        metadata = []
+        for n, tensor in enumerate(tensors):
+            postfix = "" if n == 0 else f"_{n}"
+            output = streaming_model.outputs["snapshotter" + postfix]
+
+            self.pipe(input, output)
+            metadata.append(tensor.name + "," + tensor.shape[1])
+            num_channels = tensor.shape[1]
+            metadata += f"{tensor.name},{num_channels}"
+
+        self.config.parameters["stream_channels"].string_value = ";".join(
+            metadata
+        )
 
     def pipe(
         self,

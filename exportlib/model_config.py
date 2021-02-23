@@ -170,102 +170,10 @@ class ModelConfig:
 
 
 class EnsembleConfig(ModelConfig):
-    def add_model(self, model: "Model", version: typing.Optional[int] = None):
+    def add_step(self, model: "Model", version: typing.Optional[int] = None):
         version = version or -1
         step = io.model_config.ModelEnsembling.Step(
             model_name=model.name, model_version=version
         )
         self._config.ensemble_scheduling.step.append(step)
-        self.models[model.name] = model
         return step
-
-    def pipe(
-        self,
-        input_tensor: "ExposedTensor",
-        output_tensor: "ExposedTensor",
-        name: typing.Optional[str] = None,
-    ):
-        input_tensor_model, input_tensor_name = input_tensor.split(".")
-        output_tensor_model, output_tensor_name = output_tensor.split(".")
-
-        # TODO: combine this into one function that
-        # gets applied for both inputs and outputs
-        for step in self._config.ensemble_scheduling.step:
-            if step.model_name == input_tensor_model:
-                model = self.models[step.model_name]
-
-                if input_tensor_name not in model.outputs:
-                    raise ValueError(
-                        "Unrecognized output tensor {} from "
-                        "model {}".format(input_tensor_name, model.name)
-                    )
-                if input_tensor_name not in step.output_map:
-                    # we haven't mapped this tensor to anything
-                    # before, so add it with either its own key
-                    # or the provided one
-                    name = name or input_tensor_name
-                    step.output_map[input_tensor_name] = name
-                elif step.output_map[input_tensor_name] != name:
-                    # we have seen it before, but didn't pass
-                    # the name we saw before
-                    if name is None:
-                        # if this is because we didn't pass a name
-                        # at all, then just use the existing one
-                        name = step.output_map[input_tensor_name]
-                    else:
-                        # otherwise throw an error
-                        raise ValueError(
-                            "Output tensor {} for model {} "
-                            "already maps to name {}. Name "
-                            "{} was provided".format(
-                                input_tensor_name,
-                                step.model_name,
-                                step.output_map[input_tensor_name],
-                                name,
-                            )
-                        )
-                break
-        else:
-            if name is not None:
-                raise ValueError("Can't specify key for input name")
-            name = input_tensor_name
-
-            if input_tensor_model == "INPUT" and name not in [
-                x.name for x in self._config.input
-            ]:
-                raise ValueError("Unrecognized input tensor {}".format(name))
-            elif input_tensor_model != "INPUT":
-                raise ValueError(
-                    "Model {} not in ensemble!".format(input_tensor_model)
-                )
-
-        for step in self._config.ensemble_scheduling.step:
-            if step.model_name == output_tensor_model:
-                model = self.models[step.model_name]
-
-                if output_tensor_name not in model.inputs:
-                    raise ValueError(
-                        "Unrecognized input tensor {} from "
-                        "model {}".format(output_tensor_name, model.name)
-                    )
-                if output_tensor_name in step.input_map:
-                    raise ValueError(
-                        "Input {} for model {} is already "
-                        "receiving output from tensor {}".format(
-                            output_tensor_name,
-                            model.name,
-                            step.input_map[output_tensor_name],
-                        )
-                    )
-                step.input_map[output_tensor_name] = name
-                break
-
-        else:
-            if output_tensor_model == "OUTPUT" and name not in [
-                x.name for x in self._config.output
-            ]:
-                raise ValueError("Unrecognized output tensor {}".format(name))
-            elif output_tensor_model != "OUTPUT":
-                raise ValueError(
-                    "Model {} not in ensemble!".format(output_tensor_model)
-                )
