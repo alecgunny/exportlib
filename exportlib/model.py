@@ -238,7 +238,10 @@ class EnsembleModel(Model):
         return self.outputs[output.name]
 
     def add_streaming_inputs(
-        self, inputs: typing.Union[typing.List[_tensor_type]], stream_size: int
+        self,
+        inputs: typing.Union[typing.List[_tensor_type]],
+        stream_size: int,
+        name: typing.Optional[str] = None,
     ):
         tensors = []
         for input in inputs:
@@ -254,7 +257,7 @@ class EnsembleModel(Model):
                     "must install TensorFlow first"
                 )
         streaming_model = make_streaming_input_model(
-            self.repo, tensors, stream_size
+            self.repo, tensors, stream_size, name
         )
 
         self.add_input(streaming_model.inputs["stream"])
