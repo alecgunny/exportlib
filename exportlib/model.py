@@ -9,13 +9,13 @@ from exportlib import ModelConfig, io
 from exportlib.platform import Platform, PlatformName, platforms
 from exportlib.platform.platform import _SHAPE_TYPE
 
-if typing.TYPE_CHEKCKING:
+if typing.TYPE_CHECKING:
     from tritonclient.grpc.model_config_pb2 import ModelEnsembling
 
     from exportlib import ModelRepository
 
 
-@contextlib.context_manager
+@contextlib.contextmanager
 def _create_subdir(path: str, dirname: str):
     path = os.path.join(path, dirname)
     do_remove = io.soft_makedirs(path)
@@ -47,7 +47,7 @@ class Model:
     ):
         if platform is not None:
             try:
-                platform = Platform(platform)
+                platform = PlatformName(platform)
             except ValueError:
                 raise ValueError(f"Unrecognized platform {platform}")
 
@@ -177,7 +177,7 @@ class EnsembleModel(Model):
         tensor: _tensor_type,
         exposed_type: str,
         version: typing.Optional[int] = None,
-    ) -> typing.Tuple[ExposedTensor, ModelEnsembling.Step]:
+    ) -> typing.Tuple[ExposedTensor, "ModelEnsembling.Step"]:
         assert exposed_type in ["input", "output"]
         repo_models = list(self.repo.models.values())
 
