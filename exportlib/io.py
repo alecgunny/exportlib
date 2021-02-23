@@ -5,16 +5,15 @@ from tritonclient.grpc import model_config_pb2 as model_config
 
 
 def soft_makedirs(path):
-    # basically just a reminder to myself to
-    # get rid of this function and replace it
-    # with the exist_ok syntax when I'm confident
-    # I have the right version (os doesn't have
-    # a __version__ attribute unfortunately)
-    try:
-        os.makedirs(path, exist_ok=True)
-    except TypeError:
-        if not os.path.exists(path):
-            os.makedirs(path)
+    """
+    directory making utility that returns
+    `True` if we had to make the directory,
+    otherwise `False` if it already existed
+    """
+    if not os.path.exists(path):
+        os.makedirs(path)
+        return True
+    return False
 
 
 def read_config(path):

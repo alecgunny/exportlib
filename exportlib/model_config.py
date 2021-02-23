@@ -5,7 +5,7 @@ from exportlib import io
 from exportlib.platform import PlatformName
 
 if typing.TYPE_CHECKING:
-    from exportlib import Model
+    from exportlib.model import ExposedTensor, Model
 
 
 def _add_exposed_tensor(f):
@@ -65,31 +65,18 @@ class ModelConfig:
         size and all inputs and outputs must have explicitly described dims
     """
 
-    def __new__(
-        cls,
-        model: "Model",
-        platform: PlatformName,
-        max_batch_size: typing.Optional[int] = None,
-    ) -> None:
+    def __new__(cls, name: str, platform: PlatformName, **kwargs) -> None:
         if platform is PlatformName.ENSEMBLE:
             cls = EnsembleConfig
 
         obj = super().__new__(cls)
-        obj.__init__(model, platform, max_batch_size)
+        obj.__init__(name, platform, **kwargs)
         return obj
 
-    def __init__(
-        self,
-        model: "Model",
-        platform: PlatformName,
-        max_batch_size: typing.Optional[int] = None,
-    ):
+    def __init__(self, name: str, platform: PlatformName, **kwargs) -> None:
         self._config = io.model_config.ModelConfig(
-            name=model.name, platform=platform.value
+            name=name, platform=platform.value, **kwargs
         )
-        if max_batch_size is not None:
-            self._config.max_batch_size = max_batch_size
-        self.path = os.path.join(model.path, "config.pbtxt")
 
     def __getattr__(self, name):
         try:
@@ -98,13 +85,14 @@ class ModelConfig:
             raise AttributeError from e
 
     @classmethod
-    def read(cls, model: "Model"):
-        obj = cls(model, PlatformName.DYNAMIC)
-        config = io.read_config(obj.path)
+    def read(cls, path: str):
+        config = io.read_config(path)
+        # TODO: check for valid platform names here?
+        obj = cls(config.name, PlatformName.DYNAMIC)
         obj._config = config
         return obj
 
-    def write(self):
+    def write(self, path):
         """
         Write out the protobuf config to the model's
         folder in the model repository
@@ -114,7 +102,7 @@ class ModelConfig:
         # ------------
         #    - if max_batch_size is not set, ensure that
         #        all inputs and outputs have dims > 0
-        io.write_config(self._config, self.path)
+        io.write_config(self._config, path)
 
     @_add_exposed_tensor
     def add_input(input: io.model_config.ModelInput, **kwargs):
@@ -193,8 +181,8 @@ class EnsembleConfig(ModelConfig):
 
     def pipe(
         self,
-        input_tensor: str,
-        output_tensor: str,
+        input_tensor: "ExposedTensor",
+        output_tensor: "ExposedTensor",
         name: typing.Optional[str] = None,
     ):
         input_tensor_model, input_tensor_name = input_tensor.split(".")
