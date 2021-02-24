@@ -80,7 +80,9 @@ class TensorRTPlatform(Platform):
             f.write(engine)
 
         # write and clean up
-        self.model.config.write()
+        self.model.config.write(
+            os.path.join(self.model.path, "config.pbtxt")
+        )
         return engine_path
 
 

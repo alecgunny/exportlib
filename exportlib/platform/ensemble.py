@@ -1,3 +1,5 @@
+import os
+
 from exportlib.platform import Platform
 
 
@@ -19,5 +21,7 @@ class EnsemblePlatform(Platform):
         raise TypeError
 
     def export(self, *args, **kwargs):
-        self.model.config.write()
+        self.model.config.write(
+            os.path.join(self.model.path, "config.pbtxt")
+        )
         return None

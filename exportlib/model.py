@@ -34,7 +34,8 @@ class ExposedTensor:
     shape: _SHAPE_TYPE
 
 
-def _infer_platform(name, config_path, platform=None):
+def _infer_platform(name, repo, platform=None):
+    config_path = os.path.join(repo.path, name, "config.pbtxt")
     if platform is not None:
         try:
             platform = PlatformName(platform)
@@ -88,24 +89,25 @@ class Model:
         repository: "ModelRepository",
         platform: typing.Optional[str],
     ):
-        config_path = os.path.join(repository.path, name, "config.pbtxt")
-        platform, _ = _infer_platform(name, platform, config_path)
+        platform, _ = _infer_platform(name, repository, platform)
 
         if platform is PlatformName.ENSEMBLE:
             cls = EnsembleModel
         return super().__new__(cls)
 
     def __attrs_post_init__(self):
-        config_path = os.path.join(self.path, "config.pbtxt")
-        platform, config = _infer_platform(self.name, self.platform, config_path)
-
-        try:
-            self.platform = platforms[platform](self)
-        except KeyError:
-            raise ValueError(
-                "No exporter associated with platform {}".format(platform)
+        with _create_subdir(self.repository.path, self.name):
+            platform, config = _infer_platform(
+                self.name, self.repository, self.platform
             )
-        self.config = config
+
+            try:
+                self.platform = platforms[platform](self)
+            except KeyError:
+                raise ValueError(
+                    "No exporter associated with platform {}".format(platform)
+            )
+            self.config = config
 
     @property
     def path(self):
@@ -168,7 +170,7 @@ class EnsembleModel(Model):
     @property
     def models(self):
         return [
-            self.repo.models[step.model_name]
+            self.repository.models[step.model_name]
             for step in self._config.ensemble_scheduling.step
         ]
 
@@ -177,9 +179,9 @@ class EnsembleModel(Model):
         tensor: _tensor_type,
         exposed_type: str,
         version: typing.Optional[int] = None,
-    ) -> typing.Tuple[ExposedTensor, "ModelEnsembling.Step"]:
+        ) -> typing.Tuple[ExposedTensor, "ModelEnsembling.Step"]:
         assert exposed_type in ["input", "output"]
-        repo_models = list(self.repo.models.values())
+        repo_models = list(self.repository.models.values())
 
         if isinstance(tensor, str):
             for model in repo_models:
@@ -204,38 +206,54 @@ class EnsembleModel(Model):
                     f"Trying to add model {tensor.model.name} to "
                     "ensemble that doesn't exist in repo."
                 )
-            step = self.config.add_step(tensor.model, version=version)
-        return tensor, step
+            self.config.add_step(tensor.model, version=version)
+        return tensor
+
+    def _update_step_map(self, model_name, key, value, map_type):
+        for step in self.config.ensemble_scheduling.step:
+            if step.model_name == model_name:
+                step_map = getattr(step, map_type + "_map")
+                step_map[key] = value
+
+    def _update_input_map(self, model_name, key, value):
+        self._update_step_map(model_name, key, value, "input")
+
+    def _update_output_map(self, model_name, key, value):
+        self._update_step_map(model_name, key, value, "output")
 
     def add_input(
         self,
         input: _tensor_type,
         version: typing.Optional[int] = None,
+        name: typing.Optional[str] = None
     ) -> ExposedTensor:
-        input, step = self._find_tensor(input, "input", version)
+        input = self._find_tensor(input, "input", version)
+        name = name or input.name
         if input.name not in self.inputs:
             self.config.add_input(
-                input.name,
+                name,
                 input.shape,
                 dtype="float32",  # TODO: dynamic dtype mapping
             )
-        step.input_map[input.name] = input.name
-        return self.inputs[input.name]
+        self._update_input_map(input.model.name, input.name, name)
+        return self.inputs[name]
 
     def add_output(
         self,
         output: _tensor_type,
         version: typing.Optional[int] = None,
+        name: typing.Optional[str] = None
     ) -> ExposedTensor:
-        output, step = self._find_tensor(output, "output", version)
+        output = self._find_tensor(output, "output", version)
+        name = name or output.name
         if output.name not in self.outputs:
             self.config.add_output(
-                output.name,
+                name,
                 output.shape,
                 dtype="float32",  # TODO: dynamic dtype mapping
             )
-        step.output_map[output.name] = output.name
-        return self.outputs[output.name]
+        self._update_output_map(output.model.name, output.name, name)
+        return self.outputs[name]
 
     def add_streaming_inputs(
         self,
@@ -245,7 +263,7 @@ class EnsembleModel(Model):
     ):
         tensors = []
         for input in inputs:
-            tensor, step = self._find_tensor(input, "input")
+            tensor = self._find_tensor(input, "input")
             tensors.append(tensor)
 
         try:
@@ -257,19 +275,18 @@ class EnsembleModel(Model):
                     "must install TensorFlow first"
                 )
         streaming_model = make_streaming_input_model(
-            self.repo, tensors, stream_size, name
+            self.repository, tensors, stream_size, name
         )
 
         self.add_input(streaming_model.inputs["stream"])
+
         metadata = []
         for n, tensor in enumerate(tensors):
             postfix = "" if n == 0 else f"_{n}"
             output = streaming_model.outputs["snapshotter" + postfix]
 
-            self.pipe(input, output)
-            metadata.append(tensor.name + "," + tensor.shape[1])
-            num_channels = tensor.shape[1]
-            metadata += f"{tensor.name},{num_channels}"
+            self.pipe(output, tensor)
+            metadata.append(tensor.name + "," + str(tensor.shape[1]))
 
         self.config.parameters["stream_channels"].string_value = ";".join(
             metadata
@@ -282,14 +299,19 @@ class EnsembleModel(Model):
         name: typing.Optional[str] = None,
         version: typing.Optional[int] = None,
     ) -> None:
-        input, input_step = self._find_tensor(input, "output")
-        output, output_step = self._find_tensor(output, "input", version)
+        input  = self._find_tensor(input, "output")
+        output = self._find_tensor(output, "input", version)
 
         try:
-            current_key = input_step.output_map[input.name]
+            for step in self.config.ensemble_scheduling.step:
+                if step.model_name == input.model.name:
+                    break
+            current_key = step.output_map[input.name]
+            if current_key == "":
+                raise KeyError
         except KeyError:
             name = name or input.name
-            input_step.output_map[input.name] = name
+            self._update_output_map(input.model.name, input.name, name)
         else:
             if name is not None and current_key != name:
                 raise ValueError(
@@ -300,9 +322,14 @@ class EnsembleModel(Model):
             name = current_key
 
         try:
-            current_key = output_step.input_map[output.name]
+            for step in self.config.ensemble_scheduling.step:
+                if step.model_name == output.model.name:
+                    break
+            current_key = step.input_map[output.name]
+            if current_key == "":
+                raise KeyError
         except KeyError:
-            output_step.input_map[output.name] = name
+            self._update_input_map(output.model.name, output.name, name)
         else:
             if current_key != name:
                 raise ValueError(

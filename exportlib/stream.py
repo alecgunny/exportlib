@@ -42,7 +42,7 @@ class Snapshotter(tf.keras.layers.Layer):
 
         self.snapshot = self.add_weight(
             name="snapshot",
-            shape=(input_shape[0], input_shape[1], self.size),
+            shape=(input_shape[0], input_shape[1], self.snapshot_size),
             dtype=tf.float32,
             initializer="zeros",
             trainable=False,
@@ -81,7 +81,7 @@ def make_streaming_input_model(
         batch_size=1,  # TODO: other batch sizes
         dtype=tf.float32,
     )
-    output = Snapshotter(inputs[0].shape[-1], channels)
+    output = Snapshotter(inputs[0].shape[-1], channels)(input)
     model = tf.keras.Model(inputs=input, outputs=output)
 
     tf_model = repository.create_model(
@@ -89,7 +89,7 @@ def make_streaming_input_model(
     )
     tf_model.config.sequence_batching = model_config.ModelSequenceBatching(
         max_sequence_idle_microseconds=5000000,
-        direct=model_config.ModelSequenceBatching.StrategyDirect,
+        direct=model_config.ModelSequenceBatching.StrategyDirect(),
     )
     tf_model.config.model_warmup.append(
         model_config.ModelWarmup(

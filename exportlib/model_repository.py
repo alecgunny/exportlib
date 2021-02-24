@@ -58,9 +58,7 @@ class ModelRepository:
         try:
             model = Model(name=name, repository=self, platform=platform)
         except ValueError:
-            # TODO: this catch needs to be more specific since
-            # there's a bunch of ValueErrors in the post_init now
-            raise ValueError("Unknown platform {}".format(platform))
+            raise
 
         self.models[name] = model
         return model
