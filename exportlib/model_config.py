@@ -137,8 +137,8 @@ class ModelConfig:
                 gpus = [gpus]
             elif kind == "gpu":
                 gpus = [i for i in range(gpus)]
-        if kind == "gpu" and gpus is None:
-            gpus = [0]
+        # if kind == "gpu" and gpus is None:
+        #     gpus = [0]
 
         # next deal with the instance group, mapping from
         # our lowercase value to the protobuf enum expected

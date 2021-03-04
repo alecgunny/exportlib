@@ -18,10 +18,10 @@ class EnsemblePlatform(Platform):
         raise TypeError
 
     def _make_export_path(self, version):
-        raise TypeError
+        return os.path.join(self.model.path, str(version), "model.empty")
 
-    def export(self, *args, **kwargs):
-        self.model.config.write(
-            os.path.join(self.model.path, "config.pbtxt")
-        )
+    def export(self, model_fn, version, *args, **kwargs):
+        self.model.config.write(os.path.join(self.model.path, "config.pbtxt"))
+        with open(self._make_export_path(version), "w") as f:
+            f.write("")
         return None

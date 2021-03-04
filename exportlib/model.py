@@ -106,7 +106,7 @@ class Model:
             except KeyError:
                 raise ValueError(
                     "No exporter associated with platform {}".format(platform)
-            )
+                )
             self.config = config
 
     @property
@@ -179,7 +179,7 @@ class EnsembleModel(Model):
         tensor: _tensor_type,
         exposed_type: str,
         version: typing.Optional[int] = None,
-        ) -> typing.Tuple[ExposedTensor, "ModelEnsembling.Step"]:
+    ) -> typing.Tuple[ExposedTensor, "ModelEnsembling.Step"]:
         assert exposed_type in ["input", "output"]
         repo_models = list(self.repository.models.values())
 
@@ -225,7 +225,7 @@ class EnsembleModel(Model):
         self,
         input: _tensor_type,
         version: typing.Optional[int] = None,
-        name: typing.Optional[str] = None
+        name: typing.Optional[str] = None,
     ) -> ExposedTensor:
         input = self._find_tensor(input, "input", version)
         name = name or input.name
@@ -242,7 +242,7 @@ class EnsembleModel(Model):
         self,
         output: _tensor_type,
         version: typing.Optional[int] = None,
-        name: typing.Optional[str] = None
+        name: typing.Optional[str] = None,
     ) -> ExposedTensor:
         output = self._find_tensor(output, "output", version)
         name = name or output.name
@@ -281,14 +281,11 @@ class EnsembleModel(Model):
         self.add_input(streaming_model.inputs["stream"])
 
         metadata = []
-        for n, tensor in enumerate(tensors):
-            postfix = "" if n == 0 else f"_{n}"
-            output = streaming_model.outputs["snapshotter" + postfix]
+        for tensor, output in zip(tensors, streaming_model.config.output):
+            self.pipe(streaming_model.outputs[output.name], tensor)
+            metadata.append("{}/{}".format(tensor.model.name, tensor.name))
 
-            self.pipe(output, tensor)
-            metadata.append(tensor.name + "," + str(tensor.shape[1]))
-
-        self.config.parameters["stream_channels"].string_value = ";".join(
+        self.config.parameters["stream_channels"].string_value = ",".join(
             metadata
         )
 
@@ -299,7 +296,7 @@ class EnsembleModel(Model):
         name: typing.Optional[str] = None,
         version: typing.Optional[int] = None,
     ) -> None:
-        input  = self._find_tensor(input, "output")
+        input = self._find_tensor(input, "output")
         output = self._find_tensor(output, "input", version)
 
         try:

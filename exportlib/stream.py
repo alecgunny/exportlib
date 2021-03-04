@@ -81,7 +81,8 @@ def make_streaming_input_model(
         batch_size=1,  # TODO: other batch sizes
         dtype=tf.float32,
     )
-    output = Snapshotter(inputs[0].shape[-1], channels)(input)
+    snapshotter = Snapshotter(inputs[0].shape[-1], channels)
+    output = snapshotter(input)
     model = tf.keras.Model(inputs=input, outputs=output)
 
     tf_model = repository.create_model(
@@ -109,7 +110,7 @@ def make_streaming_input_model(
     for n, x in enumerate(inputs):
         postfix = "" if n == 0 else f"_{n}"
         tf_model.config.add_output(
-            name="snapshotter" + postfix, shape=x.shape, dtype="float32"
+            name=snapshotter.name + postfix, shape=x.shape, dtype="float32"
         )
 
     # TODO: add actual platform save

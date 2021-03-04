@@ -9,8 +9,6 @@ import requests
 from exportlib.platform import Platform, TorchOnnxPlatform
 from exportlib.platform.platform import _SHAPE_TYPE
 
-from .onnx import convert_network
-
 if typing.TYPE_CHECKING:
     from exportlib import Model
 
@@ -56,6 +54,13 @@ class TensorRTPlatform(Platform):
 
         config = self.model.config._config
         if url is None:
+            # Do TRT import here so that we can use remote
+            # TODO: we should just have a TensorRT remote
+            # platform that gets imported separately,
+            # that way we can still catch not having
+            # the TRT import in platform/__init__.py
+            from .onnx import convert_network
+
             engine = convert_network(model_fn, config, use_fp16)
             if engine is None:
                 raise RuntimeError("Model conversion failed")
@@ -80,9 +85,7 @@ class TensorRTPlatform(Platform):
             f.write(engine)
 
         # write and clean up
-        self.model.config.write(
-            os.path.join(self.model.path, "config.pbtxt")
-        )
+        self.model.config.write(os.path.join(self.model.path, "config.pbtxt"))
         return engine_path
 
 
