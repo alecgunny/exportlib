@@ -104,6 +104,10 @@ def make_streaming_input_model(
             name="zeros_warmup",
         )
     )
+
+    # TODO: make this configurable
+    tf_model.config.add_instance_group(gpus=1, count=1)
+
     tf_model.config.add_input(
         name="stream", shape=(1, sum(channels), stream_size), dtype="float32"
     )
