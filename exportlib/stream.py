@@ -89,7 +89,7 @@ def make_streaming_input_model(
         name=name or "snapshotter", platform=PlatformName.TF, force=True
     )
     tf_model.config.sequence_batching = model_config.ModelSequenceBatching(
-        max_sequence_idle_microseconds=5000000,
+        max_sequence_idle_microseconds=10000000,
         direct=model_config.ModelSequenceBatching.StrategyDirect(),
     )
     tf_model.config.model_warmup.append(
