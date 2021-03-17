@@ -73,6 +73,7 @@ def make_streaming_input_model(
     inputs: "ExposedTensor",
     stream_size: int,
     name: typing.Optional[str] = None,
+    streams_per_gpu: int = 1,
 ) -> "Model":
     channels = [x.shape[1] for x in inputs]
     input = tf.keras.Input(
@@ -105,8 +106,8 @@ def make_streaming_input_model(
         )
     )
 
-    # TODO: make this configurable
-    tf_model.config.add_instance_group(gpus=1, count=1)
+    # TODO: add configurable GPU count?
+    tf_model.config.add_instance_group(count=streams_per_gpu)
 
     tf_model.config.add_input(
         name="stream", shape=(1, sum(channels), stream_size), dtype="float32"
