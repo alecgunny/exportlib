@@ -286,7 +286,7 @@ class EnsembleModel(Model):
             self.pipe(streaming_model.outputs[output.name], tensor)
             metadata.append("{}/{}".format(tensor.model.name, tensor.name))
 
-        self.config.parameters["stream_channels"].string_value = ",".join(
+        self.config.parameters["states"].string_value = ",".join(
             metadata
         )
 
